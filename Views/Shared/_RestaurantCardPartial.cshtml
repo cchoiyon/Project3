@@ -1,0 +1,68 @@
+﻿@* File: Views/Shared/_RestaurantCardPartial.cshtml *@
+@model Project3.Models.RestaurantViewModel
+@* Assuming helper functions are moved to a utility class like ViewHelpers *@
+@* Example: @using Project3.Utilities *@
+
+@*
+    NOTE: The Func<> definitions have been removed from this partial.
+    Assume GetStarRatingHTML and GetImagePath are available via a
+    utility class (e.g., ViewHelpers.GetStarRatingHTML(Model.OverallRating))
+    or Tag Helpers.
+*@
+
+@* Bootstrap Card Structure - h-100 makes cards in a row equal height *@
+<div class="card h-100 shadow-sm">
+    <a asp-controller="Restaurant" asp-action="Details" asp-route-id="@Model.RestaurantID">
+        @* Link image to details page *@
+        @* Call the helper for image path (ensure placeholder logic is included) *@
+        @* Example: <img src="@ViewHelpers.GetImagePath(Model.LogoPhoto, Url)" class="card-img-top" alt="@Model.Name"> *@
+        <img src="@Url.Content(string.IsNullOrEmpty(Model.LogoPhoto) ? "~/images/restaurant-placeholder.png" : (!Model.LogoPhoto.StartsWith("/") && !Model.LogoPhoto.StartsWith("~") ? "~/" + Model.LogoPhoto : Model.LogoPhoto))"
+             class="card-img-top" alt="@Model.Name">
+    </a>
+    <div class="card-body d-flex flex-column">
+        <h5 class="card-title mb-1">
+            <a asp-controller="Restaurant" asp-action="Details" asp-route-id="@Model.RestaurantID" class="text-decoration-none text-dark stretched-link">@Model.Name</a>
+        </h5>
+        <div class="mb-2 d-flex align-items-center">
+            @* Call the helper to display stars *@
+            @* Example: @ViewHelpers.GetStarRatingHTML(Model.OverallRating) *@
+            <span class="star-rating">
+                @{
+                    double rating = Math.Round(Model.OverallRating * 2) / 2; // Round to nearest 0.5
+                    for (int i = 1; i <= 5; i++)
+                    {
+                        if (rating >= i)
+                        {
+                            <i class="fas fa-star"></i>
+                        }
+                        else if (rating >= (i - 0.5))
+                        {
+                            <i class="fas fa-star-half-alt"></i>
+                        }
+                        else
+                        {
+                            <i class="far fa-star"></i>
+                        }
+                    }
+                }
+            </span>
+            <span class="ms-2 text-muted small">@Model.ReviewCount review@(Model.ReviewCount != 1 ? "s" : "")</span>
+        </div>
+        <p class="card-text text-muted small mb-1">
+            @Model.Cuisine @* Display cuisine type if available *@
+        </p>
+        <p class="card-text text-muted small mb-3">
+            @Model.City, @Model.State
+        </p>
+
+        @* Buttons pushed to the bottom *@
+        <div class="mt-auto d-grid">
+            @* Use d-grid for full-width button *@
+            @* Link to Add Review page/action for this specific restaurant *@
+            <a asp-controller="Review" asp-action="Create" asp-route-restaurantId="@Model.RestaurantID" class="btn btn-sm btn-start-review">
+                @* Use custom class for styling *@
+                Start a review
+            </a>
+        </div>
+    </div>
+</div>

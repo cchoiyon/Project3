@@ -1,0 +1,85 @@
+﻿@* File: Views/ReviewerHome/Index.cshtml *@
+@model Project3.Models.ReviewerHomeViewModel
+@* Assuming helper functions are moved to a utility class like ViewHelpers *@
+@* Example: @using Project3.Utilities *@
+
+@{
+    ViewData["Title"] = "Reviewer Dashboard";
+    // Use the new application layout
+    Layout = "_AppLayout";
+}
+
+@* Welcome Message *@
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Welcome, @(ViewData["Username"])!</h1>
+    @* Manage Reviews Button *@
+    <a asp-action="ManageReviews" asp-controller="ReviewerHome" class="btn btn-info">Manage My Reviews</a>
+</div>
+
+<p>Find restaurants to review or manage your existing reviews.</p>
+
+<hr />
+
+@* Search Form Partial - Add a wrapper for styling *@
+<div class="restaurant-search-form">
+    <h2 class="h4 mb-3">Search Restaurants</h2>
+    @{
+        await Html.RenderPartialAsync("_RestaurantSearchFormPartial", Model.SearchCriteria);
+    }
+</div>
+
+
+@* Display Search Results (if any) *@
+@if (Model.SearchResults != null && Model.SearchResults.Count > 0)
+{
+    <h2 class="mt-4">Search Results (@Model.SearchResults.Count)</h2>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        @foreach (var restaurant in Model.SearchResults)
+        {
+            <div class="col">
+                @* Use a partial view to display each restaurant card *@
+                @{
+                    await Html.RenderPartialAsync("_RestaurantCardPartial", restaurant);
+                }
+            </div>
+        }
+    </div>
+}
+else if (Context.Request.Method == "POST") // Only show "no results" after a search POST
+{
+    <div class="alert alert-warning mt-4" role="alert">
+        No restaurants found matching your search criteria.
+    </div>
+}
+
+
+@* Display Featured Restaurants (only if no search results displayed) *@
+@if (Model.SearchResults == null || Model.SearchResults.Count == 0)
+{
+    <h2 class="mt-4">Featured Restaurants</h2>
+    @if (Model.FeaturedRestaurants != null && Model.FeaturedRestaurants.Count > 0)
+    {
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            @foreach (var restaurant in Model.FeaturedRestaurants)
+            {
+                <div class="col">
+                    @* Use a partial view to display each restaurant card *@
+                    @{
+                        await Html.RenderPartialAsync("_RestaurantCardPartial", restaurant);
+                    }
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <p>No featured restaurants available at this time.</p>
+    }
+}
+
+@*
+    NOTE: The @functions block has been removed.
+    Helper logic for GetStarRating, GetPriceLevel, and GetImagePath
+    should be moved to a separate utility class (e.g., Project3.Utilities.ViewHelpers)
+    or implemented as Tag Helpers for better separation of concerns.
+*@
