@@ -1,12 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Project3.Models;    // Models namespace
-using Project3.Utilities; // Utilities namespace
+using Project3.Models;    // My models
+using Project3.Utilities; // My utils
 using System.Data;
 using System.Data.SqlClient;
-using Microsoft.AspNetCore.Authorization; // Needed for authorization
-using System.Security.Claims; // Needed for getting UserID
-using System.Collections.Generic; // Needed for List
-using System; // For Math
+using Microsoft.AspNetCore.Authorization; // Need this for authorize
+using System.Security.Claims; // Need this for UserID
+using System.Collections.Generic; // Need this for List
+using System; // Need this for Math, Exception
 
 namespace Project3.Controllers
 {
@@ -20,22 +20,34 @@ namespace Project3.Controllers
         // GET: /ReviewerHome/ or /ReviewerHome/Index
         public IActionResult Index(ReviewerHomeViewModel viewModel = null) // Accept model from POST redirect
         {
-            // If viewModel is null (first load), create a new one
-            if (viewModel == null || viewModel.FeaturedRestaurants == null) // Check if needs loading
+            // If viewModel is null (first load) or doesnt have results, create a new one and load featured
+            // This handles both initial GET and returning after POST search
+            bool loadFeatured = false;
+            if (viewModel == null)
             {
                 viewModel = new ReviewerHomeViewModel();
+                loadFeatured = true; // Load featured on initial GET
+            }
+            else if (viewModel.SearchResults == null) // If viewModel passed but no search results (e.g., error?)
+            {
+                viewModel.SearchResults = new List<RestaurantViewModel>();
+                loadFeatured = true; // Load featured if search results are missing
+            }
+            // If viewModel.SearchResults is NOT null, it means Search action populated it, so don't load featured
+
+            if (loadFeatured)
+            {
                 // Load initial data - Featured Restaurants
                 viewModel.FeaturedRestaurants = GetRestaurants(true, null); // Get featured
-                viewModel.SearchResults = new List<RestaurantViewModel>(); // Init empty search results
             }
 
-            // Load available cuisines for search filter checkboxes/dropdowns
+            // Always load available cuisines for search filter
             viewModel.AvailableCuisines = GetAvailableCuisines();
 
             // Get username for welcome message
-            ViewData["Username"] = User.Identity.Name ?? "Reviewer"; // Get username from claims/cookie
+            ViewData["Username"] = User.Identity?.Name ?? "Reviewer"; // Get username from claims/cookie
 
-            return View(viewModel); // Pass combined model to the view
+            return View(viewModel); // Pass combined model to the Views/ReviewerHome/Index.cshtml view
         }
 
         // Handles the search form submission
@@ -44,39 +56,48 @@ namespace Project3.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult Search(ReviewerHomeViewModel viewModel) // Bind form to SearchCriteria inside viewmodel
         {
-            // Manual validation for search criteria if needed
-            // e.g., check state format? city length?
+            // Manual validation for search criteria if needed?
+            // For now, assume SP handles empty/null inputs ok
 
-            // Get search results based on criteria
-            viewModel.SearchResults = GetRestaurants(false, viewModel.SearchCriteria);
+            try
+            {
+                // Get search results based on criteria
+                viewModel.SearchResults = GetRestaurants(false, viewModel.SearchCriteria);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error searching restaurants: {ex.Message}"); // Log error
+                ViewData["SearchError"] = "An error occurred during search.";
+                viewModel.SearchResults = new List<RestaurantViewModel>(); // Ensure it's empty on error
+            }
 
-            // Also need featured restaurants again for the view
-            viewModel.FeaturedRestaurants = GetRestaurants(true, null);
 
-            // Reload available cuisines
-            // viewModel.AvailableCuisines = GetAvailableCuisines(); // Already done in Index call below
+            // Don't need to reload featured restaurants here, the Index view logic handles it
+            // viewModel.FeaturedRestaurants = GetRestaurants(true, null);
 
-            // Redisplay the Index view with the search results and criteria populated
-            // Pass the whole viewmodel back to the Index action which will then render the view
+            // Don't need to reload cuisines here, Index action will do it
+
+            // Redisplay the Index view by calling the Index action method,
+            // passing the viewModel containing search criteria and results
             return Index(viewModel);
         }
 
         // Helper method to get restaurants (either featured or search results)
         private List<RestaurantViewModel> GetRestaurants(bool getFeatured, SearchCriteriaViewModel criteria)
         {
-            List<RestaurantViewModel> restaurantList = new List<RestaurantViewModel>();
+            var restaurantList = new List<RestaurantViewModel>(); // list to hold results
             SqlCommand cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
 
             if (getFeatured)
             {
                 cmd.CommandText = "dbo.TP_spGetFeaturedRestaurants"; // SP for featured
-                cmd.Parameters.AddWithValue("@TopN", 6); // Get top 6
+                cmd.Parameters.AddWithValue("@TopN", 6); // Get top 6 maybe
             }
             else // Search
             {
                 cmd.CommandText = "dbo.TP_spSearchRestaurants"; // SP for search
-                // Handle cuisine list (assuming comma separated for now)
+                // Handle parameters, pass DBNull if criteria is null or empty
                 cmd.Parameters.AddWithValue("@CuisineList", string.IsNullOrEmpty(criteria?.CuisineInput) ? (object)DBNull.Value : criteria.CuisineInput);
                 cmd.Parameters.AddWithValue("@City", string.IsNullOrEmpty(criteria?.City) ? (object)DBNull.Value : criteria.City);
                 cmd.Parameters.AddWithValue("@State", string.IsNullOrEmpty(criteria?.State) ? (object)DBNull.Value : criteria.State);
@@ -84,11 +105,14 @@ namespace Project3.Controllers
 
             DataSet ds = objDB.GetDataSetUsingCmdObj(cmd);
 
+            // Check if dataset has results
             if (ds != null && ds.Tables.Count > 0 && ds.Tables[0].Rows.Count > 0)
             {
+                // Loop through results and map to viewmodel
                 foreach (DataRow dr in ds.Tables[0].Rows)
                 {
                     // Manual mapping from DataRow to ViewModel
+                    // Need try/catch or checks around conversions? maybe later
                     RestaurantViewModel restaurant = new RestaurantViewModel();
                     restaurant.RestaurantID = Convert.ToInt32(dr["RestaurantID"]);
                     restaurant.Name = dr["Name"].ToString();
@@ -96,9 +120,10 @@ namespace Project3.Controllers
                     restaurant.City = dr["City"].ToString();
                     restaurant.State = dr["State"].ToString();
                     restaurant.LogoPhoto = dr["LogoPhoto"]?.ToString(); // Handle potential null
-                    restaurant.OverallRating = Convert.ToDouble(dr["OverallRating"]);
-                    restaurant.ReviewCount = Convert.ToInt32(dr["ReviewCount"]);
-                    restaurant.AveragePriceRating = Convert.ToDouble(dr["AveragePriceRating"]);
+                    // Use safe conversion for doubles/ints
+                    restaurant.OverallRating = dr["OverallRating"] != DBNull.Value ? Convert.ToDouble(dr["OverallRating"]) : 0.0;
+                    restaurant.ReviewCount = dr["ReviewCount"] != DBNull.Value ? Convert.ToInt32(dr["ReviewCount"]) : 0;
+                    restaurant.AveragePriceRating = dr["AveragePriceRating"] != DBNull.Value ? Convert.ToDouble(dr["AveragePriceRating"]) : 0.0;
 
                     restaurantList.Add(restaurant);
                 }
@@ -117,7 +142,7 @@ namespace Project3.Controllers
                 // Use direct query here for simplicity, or create SP TP_spGetCuisineTypes
                 SqlCommand cmd = new SqlCommand();
                 cmd.CommandType = CommandType.Text;
-                cmd.CommandText = "SELECT DISTINCT Cuisine FROM dbo.TP_Restaurants WHERE Cuisine IS NOT NULL ORDER BY Cuisine";
+                cmd.CommandText = "SELECT DISTINCT Cuisine FROM dbo.TP_Restaurants WHERE Cuisine IS NOT NULL AND LEN(Cuisine) > 0 ORDER BY Cuisine"; // Added LEN check
                 DataSet ds = objDB.GetDataSetUsingCmdObj(cmd);
 
                 if (ds != null && ds.Tables.Count > 0 && ds.Tables[0].Rows.Count > 0)
@@ -131,6 +156,7 @@ namespace Project3.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine("Error getting cuisines: " + ex.Message); // Log error
+                                                                            // Return empty list or handle error
             }
             return cuisines;
         }
@@ -140,21 +166,20 @@ namespace Project3.Controllers
         // GET: /ReviewerHome/ManageReviews
         public IActionResult ManageReviews()
         {
-            // Assuming you have a ReviewController with an Index action for managing reviews
+            // Redirect to Review controller's Index action
             return RedirectToAction("Index", "Review");
         }
 
-        // Placeholder for Add Review button click (maybe handled client-side or via form post?)
-        // Or redirects to the Review Management page in "add" mode
+        // Action triggered by "Start a review" button on a restaurant card
         // GET: /ReviewerHome/AddReview?restaurantId=123
         public IActionResult AddReview(int restaurantId)
         {
             if (restaurantId <= 0)
             {
-                // Handle invalid ID
-                return RedirectToAction("Index"); // Or show error
+                // Handle invalid ID maybe?
+                return RedirectToAction("Index"); // Just go back home
             }
-            // Redirect to Review controller's action for adding/editing, passing restaurant ID
+            // Redirect to Review controller's Create action, passing restaurant ID
             return RedirectToAction("Create", "Review", new { restaurantId = restaurantId });
         }
 

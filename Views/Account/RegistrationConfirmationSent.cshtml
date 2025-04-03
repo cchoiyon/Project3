@@ -1,0 +1,18 @@
+﻿@* Views/Account/RegistrationConfirmationSent.cshtml *@
+@{
+    ViewData["Title"] = "Registration Received";
+    // Layout = "_Layout"; // Or "_AccountLayout"
+}
+
+<h1>Registration Received</h1>
+<hr />
+<p>
+    Thank you for registering. Please check your email address for a confirmation link to activate your account.
+</p>
+<p>
+    @* Use ViewBag value passed from the controller action *@
+    The link will expire in @(ViewBag.ExpiryMinutes / 60) hours.
+</p>
+<p>
+    If you don't see the email, please check your spam folder.
+</p>
