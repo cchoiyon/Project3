@@ -1,7 +1,4 @@
-﻿using System;
-
-// Ensure this namespace matches your folder structure
-namespace Project3.Models.Domain
+﻿namespace Project3.Models.Domain
 {
     [Serializable]
     public class Reservation
@@ -9,14 +6,14 @@ namespace Project3.Models.Domain
         // Private backing fields
         private int _reservationID;
         private int _restaurantID;
-        private int? _userID; // *** CHANGED: Made nullable (int?) to match DB ***
+        private int? _userID;
         private DateTime _reservationDateTime;
         private int _partySize;
-        private string? _contactName; // Made nullable string
-        private string? _phone; // Made nullable string
-        private string? _email; // Made nullable string
-        private string? _specialRequests; // Made nullable string
-        private string _status; // *** ADDED: Status property ***
+        private string? _contactName; 
+        private string? _phone; 
+        private string? _email; 
+        private string? _specialRequests; 
+        private string _status; 
         private DateTime _createdDate;
 
         // Public Properties
@@ -32,7 +29,7 @@ namespace Project3.Models.Domain
             set { _restaurantID = value; }
         }
 
-        // *** CHANGED: Property is now nullable int? ***
+        
         public int? UserID
         {
             get { return _userID; }
@@ -51,31 +48,31 @@ namespace Project3.Models.Domain
             set { _partySize = value; }
         }
 
-        public string? ContactName // Allow null
+        public string? ContactName 
         {
             get { return _contactName; }
             set { _contactName = value; }
         }
 
-        public string? Phone // Allow null
+        public string? Phone
         {
             get { return _phone; }
             set { _phone = value; }
         }
 
-        public string? Email // Allow null
+        public string? Email 
         {
             get { return _email; }
             set { _email = value; }
         }
 
-        public string? SpecialRequests // Allow null
+        public string? SpecialRequests 
         {
             get { return _specialRequests; }
             set { _specialRequests = value; }
         }
 
-        // *** ADDED: Status property ***
+       
         public string Status
         {
             get { return _status; }
@@ -85,7 +82,7 @@ namespace Project3.Models.Domain
         public DateTime CreatedDate
         {
             get { return _createdDate; }
-            // Typically CreatedDate is set by DB default, so setter might be private or removed
+           
             set { _createdDate = value; }
         }
 

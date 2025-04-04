@@ -1,15 +1,6 @@
-﻿using System;
-using System.Collections.Generic; // Required for List<>
-using System.ComponentModel.DataAnnotations; // Required for validation attributes
-
-// Ensure this namespace matches your project structure
-namespace Project3.Models.Domain
+﻿namespace Project3.Models.Domain
 {
-    /// <summary>
-    /// Domain Model representing a record in the TP_Photos table.
-    /// Used for the photo gallery feature.
-    /// NOTE: Uses explicit properties with private backing fields.
-    /// </summary>
+   
     [Serializable]
     public class Photo
     {

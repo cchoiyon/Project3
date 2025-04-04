@@ -1,126 +1,107 @@
-using Project3.Utilities; // Needed for Email service and DBConnect
-using Microsoft.AspNetCore.Authentication.Cookies; // Needed for AddAuthentication/AddCookie
-using Project3.Models.Configuration; // Assuming SmtpSettings is here
+// Need these using statements for stuff below
+using Project3.Utilities;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Project3.Models.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Builder;
+using System;
+using Microsoft.Extensions.Configuration;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// --- Services ---
 
-// ** 1. Configure SmtpSettings from appsettings.json **
+// Load email settings from appsettings.json
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 
-// ** 2. Register Custom Services **
-// Register Email service (used by AccountApiController)
+// Register my custom services
 builder.Services.AddTransient<Project3.Utilities.Email>();
-// Register DBConnect (used by API Controllers) - Scoped is often suitable
-builder.Services.AddScoped<Project3.Utilities.DBConnect>();
+builder.Services.AddScoped<Project3.Utilities.DBConnect>(); // Scoped for DB stuff seems right
 
-// ** 3. Register HttpClientFactory **
-// Allows MVC controllers (and other services) to make HTTP requests to APIs
+// Need this for making HTTP calls (IHttpClientFactory)
 builder.Services.AddHttpClient();
-// Configure the named client for your internal API
+// Setting up a specific HttpClient for calling my own API?
 builder.Services.AddHttpClient("Project3Api", client =>
 {
-    // *** ADDED BaseAddress CONFIGURATION ***
-    // Set the base address for API calls made using this named client.
-    // Use the correct HTTPS URL and port for your local development environment.
-    // This should match the URL where your application is running (e.g., from launchSettings.json).
-    // Make sure the URL ends with a slash '/'.
-    client.BaseAddress = new Uri("https://localhost:7256/"); // Using port 7256 as identified
-
-    // Existing configuration:
+    // Make sure this base address matches where the API is running locally! Ends with '/'
+    client.BaseAddress = new Uri("https://localhost:7256/");
     client.DefaultRequestHeaders.Add("Accept", "application/json");
-
-    // Optional: Add other default headers if needed
-    // client.DefaultRequestHeaders.Add("User-Agent", "Project3-MvcClient");
 });
 
-
-// ** 4. Register MVC & API Controllers **
-// AddControllersWithViews registers services for Views, Controllers, and basic API support.
+// Adds services for MVC Controllers and Views
 builder.Services.AddControllersWithViews();
 
-// ** 5. Add Swagger/OpenAPI Services (for API testing/documentation) **
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer(); // Explores API endpoints
-builder.Services.AddSwaggerGen(); // Generates Swagger JSON docs
+// Swagger stuff for API testing page
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
-// ** 6. Add Caching & Session **
-builder.Services.AddMemoryCache(); // If using caching
+// Caching and Session state
+builder.Services.AddMemoryCache();
 builder.Services.AddSession(options =>
 {
-    // Configure session options if needed (e.g., timeout)
-    // options.IdleTimeout = TimeSpan.FromMinutes(30);
+    // options.IdleTimeout = TimeSpan.FromMinutes(30); // Can set timeout later if needed
     options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true; // Make session cookie essential
+    options.Cookie.IsEssential = true; // Helps session work even with cookie consent popups
 });
 
-// ** 7. Configure Authentication **
+// Authentication - using Cookies
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath = "/Account/Login";       // Where to redirect for login
-        options.LogoutPath = "/Account/Logout";      // Path for logout action
-        options.AccessDeniedPath = "/Account/AccessDenied"; // Where to redirect on access denied
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(60); // Cookie expiry
-        options.SlidingExpiration = true; // Renew cookie on activity
+        options.LoginPath = "/Account/Login";       // Redirect here if not logged in
+        options.LogoutPath = "/Account/Logout";
+        options.AccessDeniedPath = "/Account/AccessDenied"; // Redirect here if logged in but not allowed
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
+        options.SlidingExpiration = true;
     });
 
-// ** 8. Add Logging **
+// Authorization services (needed if using [Authorize])
+builder.Services.AddAuthorization();
+
 builder.Services.AddLogging();
 
-
-// ==================================================
-// Build the App
 // ==================================================
 var app = builder.Build();
+// ==================================================
 
-// ==================================================
-// Configure the HTTP request pipeline (Middleware Order Matters!).
-// ==================================================
+// --- Middleware Pipeline (Order Matters!) ---
+
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error"); // Use custom error page in production
-    app.UseHsts(); // Use HSTS for security
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
 }
 else
 {
-    app.UseDeveloperExceptionPage(); // Show detailed errors in development
-    // ** Enable Swagger UI only in Development **
-    app.UseSwagger(); // Generate swagger.json endpoint
-    app.UseSwaggerUI(options =>
-    {
-        // Configure Swagger UI options if needed
-        // options.SwaggerEndpoint("/swagger/v1/swagger.json", "Project3 API V1");
-        // options.RoutePrefix = string.Empty; // Serve UI at app root if desired
-    });
+    // Dev mode: show detailed errors and the Swagger UI
+    app.UseDeveloperExceptionPage();
+    app.UseSwagger();
+    app.UseSwaggerUI(); // Makes the /swagger page work
 }
 
-app.UseHttpsRedirection(); // Redirect HTTP requests to HTTPS
+app.UseHttpsRedirection();
+app.UseStaticFiles(); // For wwwroot files (CSS, JS)
+app.UseRouting(); // Decides which endpoint to use
 
-app.UseStaticFiles(); // Serve static files (CSS, JS, images) from wwwroot
-
-app.UseRouting(); // Marks the position where routing decisions are made
-
-app.UseSession(); // Enable session state - Place AFTER UseRouting and BEFORE UseAuthentication/UseAuthorization/MapControllers
-
-// Authentication must come before Authorization
-app.UseAuthentication(); // Identify the user (reads cookie, etc.)
-app.UseAuthorization();  // Check if the identified user has permission for the requested endpoint
+// Session needs to be configured before Auth and endpoint mapping
+app.UseSession();
+ 
+// Auth middleware order is important: UseAuthentication first!
+app.UseAuthentication(); // Checks who the user is
+app.UseAuthorization();  // Checks if the user is allowed
 
 // --- Map Endpoints ---
-// Map attribute-routed API controllers (e.g., [Route("api/[controller]")])
+
+// Maps API controllers (using routes defined in the controller files)
 app.MapControllers();
 
-// Map conventional MVC routes (for controllers returning Views)
+// Maps the default route for MVC pages (controller/action/optional-id)
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-// Add endpoints for Razor Pages if you were using them (Project requires Views)
-// app.MapRazorPages();
-
 // ==================================================
-// Run the App
+app.Run(); // Start the app!
 // ==================================================
-app.Run();
