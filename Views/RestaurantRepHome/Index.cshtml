@@ -1,116 +1,197 @@
-﻿@model RestaurantRepHomeViewModel
+﻿@* Reference the ViewModel passed from the Controller *@
+@model Project3.Models.ViewModels.RestaurantRepHomeViewModel
+
 @{
     ViewData["Title"] = "Restaurant Dashboard";
-    Layout = "_AppLayout"; // Use your main application layout
+    // Assuming you are using _AppLayout.cshtml for this page
+    Layout = "~/Views/Shared/_AppLayout.cshtml";
 }
 
-@* Welcome Message *@
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Welcome, @(ViewData["Username"])!</h1>
-    @* Buttons for managing profile/reservations *@
-    <div>
-        <a asp-action="ManageProfile" class="btn btn-info me-2">Manage Profile & Photos</a>
-        <a asp-action="ManageReservations" class="btn btn-warning">Manage Reservations</a>
+@* Optional: Custom styles for this page - or add to site.css *@
+<style>
+    body {
+        background-color: #fdfaf6; /* Light beige background */
+    }
+
+    .dashboard-card {
+        background-color: #fff;
+        border: 1px solid #eee;
+        border-radius: 0.75rem; /* Rounded corners */
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08); /* Soft shadow */
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        height: 100%; /* Make cards in a row the same height */
+        display: flex;
+        flex-direction: column;
+    }
+
+        .dashboard-card .card-title {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+        }
+
+            .dashboard-card .card-title i {
+                margin-right: 0.75rem;
+                color: #0d6efd; /* Bootstrap primary blue for icons */
+                font-size: 1.5rem;
+            }
+
+        .dashboard-card .card-text {
+            color: #6c757d; /* Bootstrap secondary text color */
+            flex-grow: 1; /* Pushes button to bottom if card height varies */
+            margin-bottom: 1rem;
+        }
+
+        .dashboard-card .btn {
+            margin-top: auto; /* Pushes button to bottom */
+        }
+
+    .card-title-reservations i {
+        color: #6f42c1;
+    }
+    /* Bootstrap purple */
+    .card-title-manage i {
+        color: #ffc107;
+    }
+    /* Bootstrap warning yellow */
+
+    .recent-reviews-section {
+        background-color: #fff;
+        border: 1px solid #eee;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        padding: 1.5rem;
+    }
+
+    .review-item {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+        .review-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+    .review-rating .fa-star {
+        color: #ffc107;
+    }
+    /* Yellow stars */
+
+</style>
+
+@* Display potential error messages from Controller *@
+@if (ViewBag.ErrorMessage != null)
+{
+    <div class="alert alert-danger" role="alert">
+        @ViewBag.ErrorMessage
     </div>
+}
+
+@* Main Welcome Header *@
+<div class="text-center mb-4">
+    <h1 class="display-5">@Model.WelcomeMessage</h1>
+    <p class="lead text-muted">Manage your restaurant and reservations</p>
 </div>
 
-@* Display Success/Error messages from TempData *@
-@if (TempData["SuccessMessage"] != null)
-{
-    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
-}
-@if (TempData["ErrorMessage"] != null)
-{
-    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
-}
-@if (TempData["InfoMessage"] != null)
-{
-    <div class="alert alert-info">@TempData["InfoMessage"]</div>
-}
-
+@* Main Dashboard Cards - Using Bootstrap Row/Columns *@
 <div class="row">
-    @* Column 1: Restaurant Profile Summary *@
-    <div class="col-md-6 mb-4">
-        <div class="card h-100">
-            <div class="card-header">Your Restaurant Profile</div>
-            <div class="card-body">
-                @if (Model.RestaurantProfile != null && Model.RestaurantProfile.RestaurantID > 0)
-                {
-                    <h5 class="card-title">@Model.RestaurantProfile.Name</h5>
-                    <p class="card-text">
-                        @Model.RestaurantProfile.Address<br />
-                        @Model.RestaurantProfile.City, @Model.RestaurantProfile.State @Model.RestaurantProfile.ZipCode
-                    </p>
-                    <p class="card-text"><small class="text-muted">Cuisine: @Model.RestaurantProfile.Cuisine</small></p>
-                    @* Add more summary details if desired *@
-                    <a asp-action="ManageProfile" class="btn btn-sm btn-outline-primary mt-2">Edit Full Profile</a>
-                    <a asp-controller="Restaurant" asp-action="Details" asp-route-id="@Model.RestaurantProfile.RestaurantID" class="btn btn-sm btn-outline-secondary mt-2 ms-1">View Public Profile</a>
-                }
-                else
-                {
-                    <p>Your restaurant profile has not been created yet.</p>
-                    <a asp-action="ManageProfile" class="btn btn-primary">Create Profile</a>
-                }
-            </div>
+    @* Column 1: Restaurant Profile Card *@
+    <div class="col-md-4">
+        <div class="dashboard-card">
+            <h5 class="card-title"><i class="fas fa-store"></i> Your Restaurant Profile</h5> @* Font Awesome store icon *@
+            @if (Model.HasProfile)
+            {
+                <p class="card-text">Manage details for <strong>@Model.RestaurantName</strong>.</p>
+                @* Button could link to ManageProfile action or specific edit page *@
+                <a asp-action="ManageProfile" class="btn btn-outline-primary">Edit Profile</a>
+            }
+            else
+            {
+                <p class="card-text">Your restaurant profile has not been created yet.</p>
+                @* Button links to CreateProfile action in this controller *@
+                <a asp-action="CreateProfile" class="btn btn-primary">Create Profile</a>
+            }
         </div>
     </div>
 
-    @* Column 2: Pending Reservations *@
-    <div class="col-md-6 mb-4">
-        <div class="card h-100">
-            <div class="card-header">Pending Reservations (@Model.PendingReservations.Count)</div>
-            <div class="card-body">
-                @if (Model.PendingReservations != null && Model.PendingReservations.Any())
-                {
-                    <ul class="list-group list-group-flush">
-                        @foreach (var res in Model.PendingReservations)
-                        {
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    @res.ContactName - @res.PartySize ppl
-                                    <small class="d-block text-muted">@res.ReservationDateTime.ToString("g")</small>
-                                </div>
-                                <a asp-action="ManageReservations" class="btn btn-sm btn-outline-secondary">View Details</a>
-                            </li>
-                        }
-                    </ul>
-                    <a asp-action="ManageReservations" class="btn btn-sm btn-primary mt-3">View All Reservations</a>
-                }
-                else
-                {
-                    <p>No pending reservations.</p>
-                }
-            </div>
+    @* Column 2: Pending Reservations Card *@
+    <div class="col-md-4">
+        <div class="dashboard-card">
+            <h5 class="card-title card-title-reservations"><i class="fas fa-calendar-check"></i> Pending Reservations</h5> @* Font Awesome calendar icon *@
+            @if (Model.HasProfile)
+            {
+                <p class="card-text">You have <strong>@Model.PendingReservationCount</strong> pending reservation(s).</p>
+                @* Button could link to ManageReservations action or specific reservations page *@
+                <a asp-action="ManageReservations" class="btn btn-outline-purple">View Reservations</a> @* Custom class or use btn-outline-secondary etc. *@
+            }
+            else
+            {
+                <p class="card-text">Create your restaurant profile to manage reservations.</p>
+                @* Optionally disable or hide button *@
+                <button class="btn btn-outline-secondary" disabled>View Reservations</button>
+            }
         </div>
     </div>
 
-    @* Row 2: Recent Reviews *@
-    <div class="col-12 mb-4">
-        <div class="card">
-            <div class="card-header">Recent Reviews (@Model.RecentReviews.Count)</div>
-            <div class="card-body">
-                @if (Model.RecentReviews != null && Model.RecentReviews.Any())
-                {
-                    @foreach (var review in Model.RecentReviews)
-                    {
-                        <div class="border-bottom pb-2 mb-2">
-                            <div class="d-flex justify-content-between">
-                                <strong>@review.ReviewerUsername</strong>
-                                <small class="text-muted">@review.VisitDate.ToString("yyyy-MM-dd")</small>
-                            </div>
-                            <div>
-                                @* TODO: Display star rating for the review *@
-                            </div>
-                            <p class="mb-0">@review.Comments</p>
-                        </div>
-                    }
-                }
-                else
-                {
-                    <p>No recent reviews.</p>
-                }
-            </div>
+    @* Column 3: Manage Links Card *@
+    <div class="col-md-4">
+        <div class="dashboard-card">
+            <h5 class="card-title card-title-manage"><i class="fas fa-pencil-alt"></i> Manage Profile & Photos</h5> @* Font Awesome pencil icon *@
+            @if (Model.HasProfile)
+            {
+                <p class="card-text">Update your restaurant details, hours, and upload photos.</p>
+                @* Button links to ManageProfile action *@
+                <a asp-action="ManageProfile" class="btn btn-warning">Manage Profile & Photos</a> @* Yellow/Orange button *@
+            }
+            else
+            {
+                <p class="card-text">Create your profile first to manage details and photos.</p>
+                <button class="btn btn-warning" disabled>Manage Profile & Photos</button>
+            }
         </div>
     </div>
-
 </div>
+
+@* Recent Reviews Section *@
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="recent-reviews-section">
+            <h4>Recent Reviews</h4>
+            @if (Model.RecentReviews != null && Model.RecentReviews.Any())
+            {
+                @foreach (var review in Model.RecentReviews)
+                {
+                    <div class="review-item">
+                        <div class="review-rating">
+                            @* Display stars based on rating *@
+                            @for (int i = 1; i <= 5; i++)
+                            {
+                                <i class="fa@(i <= review.Rating ? 's' : 'r') fa-star"></i> @* Solid or regular star *@
+                            }
+                            <span class="ms-2">(@review.Rating.ToString("0.#")/5)</span> @* Show numerical rating too *@
+                        </div>
+                        <p class="mb-1"><em>"@Html.DisplayFor(modelItem => review.Comment)"</em></p>
+                        <small class="text-muted"> - @(review.ReviewerUsername ?? "Anonymous") on @review.ReviewDate.ToString("MMM d, yyyy")</small>
+                    </div>
+                }
+            }
+            else if (!Model.HasProfile)
+            {
+                <p class="text-muted">Create your restaurant profile to see reviews.</p>
+            }
+            else
+            {
+                <p class="text-muted">No recent reviews found for your restaurant.</p>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @* Add any specific JavaScript for this page if needed *@
+}
+

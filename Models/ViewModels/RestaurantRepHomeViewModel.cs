@@ -1,50 +1,52 @@
-﻿using System;
-using System.Collections.Generic; // For List
-using Project3.Models.Domain;
-using Project3.Models.InputModels; // *** ADDED: Using statement for ReviewViewModel ***
+﻿// Using statements needed for the properties below
+using Project3.Models.DTOs; // For ReviewDto
+using System.Collections.Generic; // For List<>
+// Removed using Project3.Models.Domain; as Restaurant and Reservation objects are no longer direct properties
+// Removed using Project3.Models.InputModels; as ReviewViewModel is replaced by ReviewDto
 
 namespace Project3.Models.ViewModels
 {
     /// <summary>
     /// ViewModel for the Restaurant Rep Home page dashboard.
-    /// Uses explicit properties style.
+    /// Updated to use auto-properties and match the view's requirements.
     /// </summary>
-    [Serializable]
+    // Removed [Serializable] attribute - typically not needed for Razor ViewModels
     public class RestaurantRepHomeViewModel
     {
-        // Private backing fields
-        private Restaurant _restaurantProfile; // The rep's restaurant profile
-                                               // *** FIXED: Changed type from List<Review> to List<ReviewViewModel> ***
-        private List<ReviewViewModel> _recentReviews;
-        private List<Reservation> _pendingReservations; // List of pending reservations
+        // Public auto-implemented properties (simpler than backing fields)
 
-        // Public properties
-        public Restaurant RestaurantProfile
-        {
-            get { return _restaurantProfile; }
-            set { _restaurantProfile = value; }
-        }
+        // Property for the welcome message
+        public string WelcomeMessage { get; set; }
 
-        // *** FIXED: Changed type from List<Review> to List<ReviewViewModel> ***
-        public List<ReviewViewModel> RecentReviews
-        {
-            get { return _recentReviews; }
-            set { _recentReviews = value; }
-        }
-        public List<Reservation> PendingReservations
-        {
-            get { return _pendingReservations; }
-            set { _pendingReservations = value; }
-        }
+        // --- Restaurant Profile Section ---
+        // Flag indicating if the rep has created a profile for their restaurant
+        public bool HasProfile { get; set; }
+        // Name of the restaurant (only relevant if HasProfile is true)
+        public string RestaurantName { get; set; }
+        // ID of the restaurant (only relevant if HasProfile is true)
+        public int RestaurantId { get; set; }
+
+        // --- Pending Reservations Section ---
+        // Count of pending reservations (view only needs the count)
+        public int PendingReservationCount { get; set; }
+        // Note: Replaced List<Reservation> with just the count
+
+        // --- Recent Reviews Section ---
+        // List of recent reviews using ReviewDto for display purposes
+        public List<ReviewDto> RecentReviews { get; set; }
+        // Note: Changed from List<ReviewViewModel> to List<ReviewDto>
 
         // Constructor
         public RestaurantRepHomeViewModel()
         {
-            // Initialize to avoid null issues in the view
-            _restaurantProfile = new Restaurant();
-            // *** FIXED: Initialize with correct type ***
-            _recentReviews = new List<ReviewViewModel>();
-            _pendingReservations = new List<Reservation>();
+            // Initialize the list to avoid null reference exceptions in the view or controller
+            RecentReviews = new List<ReviewDto>();
+            // Set a default welcome message
+            WelcomeMessage = "Welcome!";
+            // Initialize other properties to default values if necessary
+            HasProfile = false;
+            RestaurantName = string.Empty;
+            PendingReservationCount = 0;
         }
     }
 }

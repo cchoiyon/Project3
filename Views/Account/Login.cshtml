@@ -5,7 +5,7 @@
     // Set Layout to null to prevent the default _Layout.cshtml from being used
     Layout = null;
     // Set the page title specifically for the browser tab
-    ViewData["Title"] = "Login - Restaurant Reviews"; // Updated project name slightly
+    ViewData["Title"] = "Login - Restaurant Reviews";
 }
 
 <!DOCTYPE html>
@@ -25,7 +25,7 @@
         @* Left Column - Graphic Area *@
         <div class="login-graphic-col">
             @* --- Added Title ON the Background --- *@
-            <h1 class="graphic-title">Restaurant Reviews</h1> @* Updated project name slightly *@
+            <h1 class="graphic-title">Yelp 2.0</h1>
         </div>
 
         @* Right Column - Form Area *@
@@ -52,7 +52,8 @@
 
 
                 <section>
-                    <form id="account" method="post" asp-route-returnUrl="@ViewData["ReturnUrl"]">
+                    @* FIX: Added asp-controller and asp-action to the form tag *@
+                    <form id="account" asp-controller="Account" asp-action="Login" asp-route-returnUrl="@ViewData["ReturnUrl"]" method="post">
                         @Html.AntiForgeryToken() @* Add AntiForgeryToken *@
                         @* Display model-level errors *@
                         <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
@@ -87,13 +88,16 @@
                         @* Links to other actions *@
                         <div class="extra-links mt-3">
                             <p>
-                                <a asp-action="ForgotPassword">Forgot your password?</a>
+                                @* FIX: Added asp-controller for clarity/robustness *@
+                                <a asp-controller="Account" asp-action="ForgotPassword">Forgot your password?</a>
                             </p>
                             <p>
-                                <a asp-action="ForgotUsername">Forgot your username?</a>
+                                @* FIX: Added asp-controller for clarity/robustness *@
+                                <a asp-controller="Account" asp-action="ForgotUsername">Forgot your username?</a>
                             </p>
                             <p>
-                                <a asp-action="Register" asp-route-returnUrl="@ViewData["ReturnUrl"]">Register as a new user</a>
+                                @* FIX: Added asp-controller for clarity/robustness *@
+                                <a asp-controller="Account" asp-action="Register" asp-route-returnUrl="@ViewData["ReturnUrl"]">Register as a new user</a>
                             </p>
                         </div>
                     </form>
@@ -112,4 +116,3 @@
     }
 </body>
 </html>
-
