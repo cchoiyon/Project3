@@ -1,11 +1,9 @@
-﻿@* ============================================================================ *@
-@* Views/Account/AnswerSecurityQuestion.cshtml                                  *@
-@* ============================================================================ *@
-@model Project3.Models.AnswerSecurityQuestionModel
+﻿@* Uses Project3.Models.InputModels.AnswerSecurityQuestionModel *@
+@model Project3.Models.InputModels.AnswerSecurityQuestionModel
 
 @{
-    Layout = null;
-    ViewData["Title"] = "Security Question - Yelp 2.0";
+    Layout = null; // Standalone page
+    ViewData["Title"] = "Security Question - Restaurant Reviews";
 }
 
 <!DOCTYPE html>
@@ -14,36 +12,37 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"]</title>
-    @* Link to Bootstrap CSS *@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    @* --- Link to Shared Account Styles --- *@
     <link rel="stylesheet" href="~/css/account-styles.css" asp-append-version="true" />
 </head>
 <body>
     <div class="login-container">
         @* Left Column - Graphic Area (Consistent) *@
         <div class="login-graphic-col">
-            <h1 class="graphic-title">Yelp 2.0</h1>
+            <h1 class="graphic-title">Restaurant Reviews</h1>
         </div>
 
-        @* Right Column - Form Area (Adapted for Answering Security Question) *@
+        @* Right Column - Form Area *@
         <div class="login-form-col">
             <div class="login-form-panel">
 
                 <h1 class="login-title">Security Check</h1>
-                <p class="login-subtitle">Please answer your security question below.</p>
+                <p class="login-subtitle">Please answer your security question below to proceed.</p>
 
                 <section>
                     <form id="answerQuestion" method="post">
+                        @Html.AntiForgeryToken()
                         <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
 
-                        @* Hidden fields for context *@
+                        @* Hidden fields for context passed from previous step *@
                         <input asp-for="UserId" type="hidden" />
                         <input asp-for="QuestionNumber" type="hidden" />
+                        <input asp-for="QuestionText" type="hidden" /> @* Keep text if needed on POST failure *@
 
                         @* Display the Security Question *@
                         <div class="mb-3 security-question-text">
-                            @Model.QuestionText
+                            <label class="form-label fw-bold">Question:</label>
+                            <div>@Model.QuestionText</div>
                         </div>
 
                         @* Answer Input *@
@@ -61,7 +60,7 @@
                         @* Link back to Login *@
                         <div class="extra-links mt-3">
                             <p>
-                                <a asp-action="Login">Back to Login</a>
+                                <a asp-action="Login">Cancel and return to Login</a>
                             </p>
                         </div>
                     </form>

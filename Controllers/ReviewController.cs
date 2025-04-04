@@ -1,295 +1,488 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Project3.Models;
-using Project3.Utilities;
-using System.Data;
-using System.Data.SqlClient;
-using Microsoft.AspNetCore.Authorization;
+// Using organized namespaces - ensure these match your project
+using Project3.Models.ViewModels;
+using Project3.Models.Domain;
+using Project3.Models.DTOs; // Add using for your API DTOs
 using System.Security.Claims;
-using System.Collections.Generic;
-using System;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Authorization; // Require login
+using System.Collections.Generic; // For List
+using System.Net; // For HttpStatusCode
+using System; // For DateTime, Exception
+using System.Linq; // For Any()
+using Microsoft.AspNetCore.Http.HttpResults;
+using Project3.Models.InputModels;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Xml.Linq;
 
 namespace Project3.Controllers
 {
-    [Authorize] // Require login for all review actions
+    [Authorize(Roles = "reviewer")] // Only reviewers can manage reviews
     public class ReviewController : Controller
     {
-        private readonly DBConnect objDB = new DBConnect();
+        private readonly ILogger<ReviewController> _logger;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        // GET: /Review/Index (Shows reviews by the logged-in user)
-        public IActionResult Index()
+        public ReviewController(ILogger<ReviewController> logger, IHttpClientFactory httpClientFactory)
         {
-            string userIdStr = User.FindFirstValue("UserID"); // Get UserID claim
-            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
+            _logger = logger;
+            _httpClientFactory = httpClientFactory;
+        }
+
+        // GET: /Review/Index (List user's reviews)
+        // Fetches reviews for the current user from the API.
+        public async Task<IActionResult> Index()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
             {
-                return RedirectToAction("Login", "Account"); // Not logged in or invalid ID
+                _logger.LogWarning("Review Index: UserID claim is missing.");
+                return Unauthorized("User identifier is missing.");
             }
 
             List<ReviewViewModel> myReviews = new List<ReviewViewModel>();
             try
             {
-                SqlCommand cmd = new SqlCommand();
-                cmd.CommandType = CommandType.StoredProcedure;
-                cmd.CommandText = "dbo.TP_spGetReviewsByUser"; // Use TP_ prefix
-                cmd.Parameters.AddWithValue("@UserID", userId);
-                DataSet ds = objDB.GetDataSetUsingCmdObj(cmd);
+                var client = _httpClientFactory.CreateClient("Project3Api"); // Use named client
+                // TODO: Verify/Update Review API GET endpoint URL (filtered by user)
+                string apiUrl = $"api/reviews/user/{userId}"; // Example URL
+                _logger.LogDebug("Calling API GET {ApiUrl}", apiUrl);
 
-                if (ds?.Tables.Count > 0 && ds.Tables[0].Rows.Count > 0)
-                {
-                    foreach (DataRow dr in ds.Tables[0].Rows)
-                    {
-                        myReviews.Add(new ReviewViewModel(dr));
-                    }
-                }
+                // Assuming API returns ReviewViewModel directly or a DTO mappable to it
+                myReviews = await client.GetFromJsonAsync<List<ReviewViewModel>>(apiUrl) ?? new List<ReviewViewModel>();
+                _logger.LogInformation("Loaded {Count} reviews for User ID {UserId}", myReviews.Count, userId);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "API call failed: Could not get reviews for User ID {UserId}. Status Code: {StatusCode}", userId, ex.StatusCode);
+                TempData["ErrorMessage"] = "Could not load your reviews at this time.";
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error getting user reviews: {ex.Message}"); // Log error
-                ViewData["ErrorMessage"] = "Could not load your reviews.";
+                _logger.LogError(ex, "Error loading reviews for User ID {UserId}", userId);
+                TempData["ErrorMessage"] = "An unexpected error occurred while loading reviews.";
             }
-            return View(myReviews); // Needs Views/Review/Index.cshtml
+
+            return View(myReviews); // Pass list to Views/Review/Index.cshtml
         }
 
         // GET: /Review/Create?restaurantId=123
-        [Authorize(Roles = "reviewer")] // Only reviewers can create
-        public IActionResult Create(int restaurantId)
+        // Displays the form to create a new review for a specific restaurant.
+        public async Task<IActionResult> Create(int restaurantId)
         {
-            if (restaurantId <= 0) { return BadRequest("Invalid Restaurant ID."); }
-            ViewData["RestaurantName"] = GetRestaurantName(restaurantId) ?? "Selected Restaurant";
-            Review model = new Review();
-            model.RestaurantID = restaurantId;
-            model.VisitDate = DateTime.Today;
-            return View(model); // Needs Views/Review/Create.cshtml
+            if (restaurantId <= 0)
+            {
+                _logger.LogWarning("Review Create GET: Invalid Restaurant ID {RestaurantId}", restaurantId);
+                return BadRequest("Invalid Restaurant ID.");
+            }
+
+            // Use the base Review domain model for form binding in this case
+            var viewModel = new Review
+            {
+                RestaurantID = restaurantId,
+                VisitDate = DateTime.Today // Default visit date
+            };
+
+            // --- API Call to get Restaurant Name ---
+            string? restaurantName = await GetRestaurantNameAsync(restaurantId);
+            if (restaurantName == null)
+            {
+                // Error logged in helper method
+                TempData["ErrorMessage"] = "Could not load restaurant details to start review.";
+                return RedirectToAction(nameof(Index)); // Or redirect to restaurant search
+            }
+            ViewData["RestaurantName"] = restaurantName; // Pass name via ViewData
+            // --- End API Call ---
+
+            return View(viewModel); // Pass model to Views/Review/Create.cshtml
         }
 
         // POST: /Review/Create
+        // Submits the new review data to the API.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "reviewer")]
-        public IActionResult Create(Review model)
+        public async Task<IActionResult> Create(Review model) // Bind form to Review model
         {
-            // Manual Validation
-            if (model.FoodQualityRating < 1 || model.FoodQualityRating > 5) ModelState.AddModelError("FoodQualityRating", "Rating must be 1-5.");
-            if (model.ServiceRating < 1 || model.ServiceRating > 5) ModelState.AddModelError("ServiceRating", "Rating must be 1-5.");
-            if (model.AtmosphereRating < 1 || model.AtmosphereRating > 5) ModelState.AddModelError("AtmosphereRating", "Rating must be 1-5.");
-            if (model.PriceRating < 1 || model.PriceRating > 5) ModelState.AddModelError("PriceRating", "Rating must be 1-5.");
-            if (model.VisitDate > DateTime.Today) ModelState.AddModelError("VisitDate", "Visit date cannot be in the future.");
-            if (string.IsNullOrWhiteSpace(model.Comments)) ModelState.AddModelError("Comments", "Comments are required.");
-
-            // *** FIX for CS0165: Declare userId outside the TryParse ***
-            int userId; // Declare here
-            string userIdStr = User.FindFirstValue("UserID");
-            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out userId)) // Assign here
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int authenticatedUserId))
             {
-                // This should ideally not happen if [Authorize] is working, but handle defensively
-                ModelState.AddModelError("", "User not identified. Please log in again.");
-            }
-            // *** END FIX ***
-
-            if (ModelState.IsValid) // Check includes the userId check above now
-            {
-                try
-                {
-                    SqlCommand cmd = new SqlCommand();
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.CommandText = "dbo.TP_spAddReview"; // Use TP_ prefix
-                    cmd.Parameters.AddWithValue("@RestaurantID", model.RestaurantID);
-                    cmd.Parameters.AddWithValue("@UserID", userId); // Use userId declared above
-                    cmd.Parameters.AddWithValue("@VisitDate", model.VisitDate);
-                    cmd.Parameters.AddWithValue("@Comments", model.Comments);
-                    cmd.Parameters.AddWithValue("@FoodQualityRating", model.FoodQualityRating);
-                    cmd.Parameters.AddWithValue("@ServiceRating", model.ServiceRating);
-                    cmd.Parameters.AddWithValue("@AtmosphereRating", model.AtmosphereRating);
-                    cmd.Parameters.AddWithValue("@PriceRating", model.PriceRating);
-
-                    int result = objDB.DoUpdateUsingCmdObj(cmd);
-
-                    if (result > 0)
-                    {
-                        TempData["Message"] = "Review added successfully!";
-                        return RedirectToAction("Index"); // Redirect to user's reviews list
-                    }
-                    else
-                    {
-                        ViewData["ErrorMessage"] = "Failed to add review.";
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error adding review: {ex.Message}"); // Log error
-                    ViewData["ErrorMessage"] = "Error adding review.";
-                }
+                _logger.LogWarning("Review Create POST: UserID claim is missing or invalid.");
+                return Unauthorized("User identifier is missing or invalid.");
             }
 
-            // If failed, return view with errors
-            ViewData["RestaurantName"] = GetRestaurantName(model.RestaurantID) ?? "Selected Restaurant";
-            return View(model); // Show Create form again
-        }
+            // model.UserID = authenticatedUserId; // UserID should be set by API based on authenticated user
 
+            // --- Manual Validation (supplements Model Annotations if Review model has them) ---
+            if (model.VisitDate > DateTime.Today) ModelState.AddModelError(nameof(model.VisitDate), "Visit date cannot be in the future.");
+            if (model.FoodQualityRating < 1 || model.FoodQualityRating > 5) ModelState.AddModelError(nameof(model.FoodQualityRating), "Food Quality rating must be 1-5.");
+            if (model.ServiceRating < 1 || model.ServiceRating > 5) ModelState.AddModelError(nameof(model.ServiceRating), "Service rating must be 1-5.");
+            if (model.AtmosphereRating < 1 || model.AtmosphereRating > 5) ModelState.AddModelError(nameof(model.AtmosphereRating), "Atmosphere rating must be 1-5.");
+            if (model.PriceRating < 1 || model.PriceRating > 5) ModelState.AddModelError(nameof(model.PriceRating), "Price Level rating must be 1-5.");
+            if (string.IsNullOrWhiteSpace(model.Comments)) ModelState.AddModelError(nameof(model.Comments), "Comments are required.");
+            // --- End Validation ---
 
-        // GET: /Review/Edit/5
-        [Authorize(Roles = "reviewer")]
-        public IActionResult Edit(int id) // id is ReviewID
-        {
-            string userIdStr = User.FindFirstValue("UserID");
-            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int currentUserId)) { return Unauthorized(); }
-
-            ReviewViewModel model = GetReview(id);
-            if (model == null) { return NotFound(); }
-            if (model.UserID != currentUserId) { TempData["ErrorMessage"] = "You can only edit your own reviews."; return RedirectToAction("Index"); }
-
-            ViewData["RestaurantName"] = model.RestaurantName;
-            Review editModel = new Review
+            if (!ModelState.IsValid)
             {
-                ReviewID = model.ReviewID,
+                _logger.LogWarning("Review Create POST failed validation for Restaurant {RestaurantId}", model.RestaurantID);
+                // ** Repopulate Restaurant Name if returning View **
+                // Consider separate InputModel to avoid this re-fetch
+                ViewData["RestaurantName"] = await GetRestaurantNameAsync(model.RestaurantID) ?? "Selected Restaurant";
+                return View(model); // Return view with validation errors
+            }
+
+            // --- Prepare DTO for API Call ---
+            // TODO: Define CreateReviewDto in Models/DTOs
+            // Map data from the input 'model' to the DTO
+            var reviewDto = new CreateReviewDto
+            {
                 RestaurantID = model.RestaurantID,
-                UserID = model.UserID,
                 VisitDate = model.VisitDate,
                 Comments = model.Comments,
                 FoodQualityRating = model.FoodQualityRating,
                 ServiceRating = model.ServiceRating,
                 AtmosphereRating = model.AtmosphereRating,
                 PriceRating = model.PriceRating
+                // UserID will be determined by the API from the authenticated user context
             };
-            return View(editModel); // Needs Views/Review/Edit.cshtml
+            // --- End DTO Preparation ---
+
+
+            // --- API Call to add Review ---
+            try
+            {
+                var client = _httpClientFactory.CreateClient("Project3Api");
+                // TODO: Verify/Update Review API POST endpoint URL
+                string apiUrl = "api/reviews"; // Example URL
+                _logger.LogDebug("Calling API POST {ApiUrl} to add review", apiUrl);
+
+                var response = await client.PostAsJsonAsync(apiUrl, reviewDto); // Send DTO
+
+                if (response.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation("Review added successfully via API for Restaurant {RestaurantId} by User {UserId}", model.RestaurantID, authenticatedUserId);
+                    TempData["SuccessMessage"] = "Review added successfully!";
+                    return RedirectToAction(nameof(Index)); // Redirect to review list
+                }
+                else // Handle API errors
+                {
+                    var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponseDto>();
+                    _logger.LogError("API call failed: Could not add review. Status: {StatusCode}, Reason: {ApiError}",
+                       response.StatusCode, errorResponse?.Message ?? await response.Content.ReadAsStringAsync());
+                    ModelState.AddModelError(string.Empty, errorResponse?.Message ?? "Error adding review. Please try again.");
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "API connection error: Could not add review for Restaurant {RestaurantId}", model.RestaurantID);
+                ModelState.AddModelError(string.Empty, "Error adding review due to a connection issue.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error adding review for Restaurant {RestaurantId}", model.RestaurantID);
+                ModelState.AddModelError(string.Empty, "An unexpected error occurred while adding the review.");
+            }
+            // --- End API Call ---
+
+            // If API call failed, return the view with the model and errors
+            ViewData["RestaurantName"] = await GetRestaurantNameAsync(model.RestaurantID) ?? "Selected Restaurant";
+            return View(model);
+        }
+
+        // GET: /Review/Edit/5
+        // Displays the form to edit an existing review.
+        public async Task<IActionResult> Edit(int id) // id = ReviewID
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int authenticatedUserId))
+            {
+                _logger.LogWarning("Review Edit GET: UserID claim is missing or invalid.");
+                return Unauthorized("User identifier is missing or invalid.");
+            }
+
+            Review model = null;
+            // --- API Call to get Review Details ---
+            try
+            {
+                var client = _httpClientFactory.CreateClient("Project3Api");
+                // TODO: Verify/Update Review API GET endpoint for a single review
+                string apiUrl = $"api/reviews/{id}"; // Example URL
+                _logger.LogDebug("Calling API GET {ApiUrl}", apiUrl);
+
+                var response = await client.GetAsync(apiUrl);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    // Assuming API returns the Review domain model or a DTO mappable to it
+                    model = await response.Content.ReadFromJsonAsync<Review>();
+                }
+                else if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    _logger.LogWarning("Review Edit GET: Review {ReviewId} not found by API.", id);
+                    return NotFound();
+                }
+                else if (response.StatusCode == HttpStatusCode.Forbidden || response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    // API might do ownership check here
+                    _logger.LogWarning("Review Edit GET: User {UserId} forbidden by API from getting Review {ReviewId}.", userId, id);
+                    TempData["ErrorMessage"] = "You do not have permission to view this review for editing.";
+                    return RedirectToAction(nameof(Index));
+                }
+                else // Handle other API errors
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("API call failed: Could not get review {ReviewId}. Status: {StatusCode}, Content: {ErrorContent}",
+                       id, response.StatusCode, errorContent);
+                    TempData["ErrorMessage"] = "Error loading review details.";
+                    return RedirectToAction(nameof(Index));
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "API connection error: Could not get review {ReviewId}", id);
+                TempData["ErrorMessage"] = "Error loading review details due to connection issue.";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error getting review {ReviewId}", id);
+                TempData["ErrorMessage"] = "An unexpected error occurred loading review details.";
+                return RedirectToAction(nameof(Index));
+            }
+            // --- End API Call ---
+
+            if (model == null) return NotFound(); // Should be caught above, but safety check
+
+            // Security Check: Ensure the logged-in user owns this review
+            if (model.UserID != authenticatedUserId)
+            {
+                _logger.LogWarning("User {UserId} attempted to edit review {ReviewId} owned by User {OwnerId}", userId, id, model.UserID);
+                TempData["ErrorMessage"] = "You can only edit your own reviews.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            ViewData["RestaurantName"] = await GetRestaurantNameAsync(model.RestaurantID) ?? "Selected Restaurant";
+            return View(model); // Pass model to Views/Review/Edit.cshtml
         }
 
         // POST: /Review/Edit/5
+        // Submits the updated review data to the API.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "reviewer")]
-        public IActionResult Edit(int id, Review model) // id from route, model from form
+        public async Task<IActionResult> Edit(int id, Review model) // id from route, model from form
         {
-            if (id != model.ReviewID) { return BadRequest(); }
+            if (id != model.ReviewID) return BadRequest();
 
-            // Manual Validation (similar to Create)
-            if (model.FoodQualityRating < 1 || model.FoodQualityRating > 5) ModelState.AddModelError("FoodQualityRating", "Rating must be 1-5.");
-            // ... add other validation checks ...
-            if (string.IsNullOrWhiteSpace(model.Comments)) ModelState.AddModelError("Comments", "Comments are required.");
-
-
-            int currentUserId = 0; // Declare here
-            string userIdStr = User.FindFirstValue("UserID");
-            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out currentUserId))
-            { ModelState.AddModelError("", "User not identified."); }
-            else
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int authenticatedUserId))
             {
-                // Security Check: Verify user owns the review *before* updating
-                ReviewViewModel existingReview = GetReview(id);
-                if (existingReview == null || existingReview.UserID != currentUserId)
-                { return NotFound(); } // Or RedirectToAction("Index") with error
+                _logger.LogWarning("Review Edit POST: UserID claim is missing or invalid.");
+                return Unauthorized("User identifier is missing or invalid.");
             }
 
-
-            if (ModelState.IsValid)
+            // Ensure the UserID in the model matches the authenticated user for security
+            // Although the API should perform the definitive check.
+            if (model.UserID != authenticatedUserId)
             {
-                try
+                _logger.LogWarning("Review Edit POST: Model UserID {ModelUserId} does not match authenticated user {AuthUserId}.", model.UserID, authenticatedUserId);
+                return Forbid(); // Or BadRequest
+            }
+
+            // --- Manual Validation (Similar to Create) ---
+            if (model.VisitDate > DateTime.Today) ModelState.AddModelError(nameof(model.VisitDate), "Visit date cannot be in the future.");
+            // Add other checks...
+            // --- End Validation ---
+
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Review Edit POST failed validation for Review {ReviewId}", model.ReviewID);
+                // ** Repopulate Restaurant Name if returning View **
+                ViewData["RestaurantName"] = await GetRestaurantNameAsync(model.RestaurantID) ?? "Selected Restaurant";
+                return View(model); // Return view with validation errors
+            }
+
+            // --- Prepare DTO for API Call ---
+            // TODO: Define UpdateReviewDto in Models/DTOs
+            // Map data from the input 'model' to the DTO
+            var reviewDto = new UpdateReviewDto
+            {
+                // Include only fields that should be updated
+                VisitDate = model.VisitDate,
+                Comments = model.Comments,
+                FoodQualityRating = model.FoodQualityRating,
+                ServiceRating = model.ServiceRating,
+                AtmosphereRating = model.AtmosphereRating,
+                PriceRating = model.PriceRating
+                // API will use the 'id' from the route and verify ownership against authenticated user
+            };
+            // --- End DTO Preparation ---
+
+
+            // --- API Call to update Review ---
+            try
+            {
+                var client = _httpClientFactory.CreateClient("Project3Api");
+                // TODO: Verify/Update Review API PUT endpoint URL
+                string apiUrl = $"api/reviews/{id}"; // Example URL
+                _logger.LogDebug("Calling API PUT {ApiUrl} to update review", apiUrl);
+
+                var response = await client.PutAsJsonAsync(apiUrl, reviewDto); // Send DTO
+
+                if (response.IsSuccessStatusCode)
                 {
-                    SqlCommand cmd = new SqlCommand();
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.CommandText = "dbo.TP_spUpdateReview"; // Use TP_ prefix
-                    cmd.Parameters.AddWithValue("@ReviewID", model.ReviewID);
-                    cmd.Parameters.AddWithValue("@VisitDate", model.VisitDate);
-                    cmd.Parameters.AddWithValue("@Comments", model.Comments);
-                    cmd.Parameters.AddWithValue("@FoodQualityRating", model.FoodQualityRating);
-                    cmd.Parameters.AddWithValue("@ServiceRating", model.ServiceRating);
-                    cmd.Parameters.AddWithValue("@AtmosphereRating", model.AtmosphereRating);
-                    cmd.Parameters.AddWithValue("@PriceRating", model.PriceRating);
-
-                    int result = objDB.DoUpdateUsingCmdObj(cmd);
-
-                    if (result > 0) { TempData["Message"] = "Review updated successfully!"; return RedirectToAction("Index"); }
-                    else { ViewData["ErrorMessage"] = "Failed to update review."; }
+                    _logger.LogInformation("Review {ReviewId} updated successfully via API by User {UserId}", model.ReviewID, authenticatedUserId);
+                    TempData["SuccessMessage"] = "Review updated successfully!";
+                    return RedirectToAction(nameof(Index)); // Redirect to review list
                 }
-                catch (Exception ex) { Console.WriteLine($"Error updating review {id}: {ex.Message}"); ViewData["ErrorMessage"] = "Error updating review."; }
+                else if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    _logger.LogWarning("Review Edit POST: Review {ReviewId} not found by API.", id);
+                    return NotFound(); // Or redirect to Index with message
+                }
+                else if (response.StatusCode == HttpStatusCode.Forbidden)
+                {
+                    _logger.LogWarning("Review Edit POST: User {UserId} forbidden by API from updating Review {ReviewId}.", userId, id);
+                    TempData["ErrorMessage"] = "You do not have permission to edit this review.";
+                    return RedirectToAction(nameof(Index));
+                }
+                else // Handle other API errors
+                {
+                    var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponseDto>();
+                    _logger.LogError("API call failed: Could not update review {ReviewId}. Status: {StatusCode}, Reason: {ApiError}",
+                       id, response.StatusCode, errorResponse?.Message ?? await response.Content.ReadAsStringAsync());
+                    ModelState.AddModelError(string.Empty, errorResponse?.Message ?? "Error updating review. Please try again.");
+                }
             }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "API connection error: Could not update review {ReviewId}", id);
+                ModelState.AddModelError(string.Empty, "Error updating review due to connection issue.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error updating review {ReviewId}", id);
+                ModelState.AddModelError(string.Empty, "An unexpected error occurred while updating the review.");
+            }
+            // --- End API Call ---
 
-            // If failed, return view with errors
-            ViewData["RestaurantName"] = GetRestaurantName(model.RestaurantID) ?? "Selected Restaurant";
-            return View(model); // Show Edit form again
-        }
-
-
-        // GET: /Review/Delete/5
-        [Authorize(Roles = "reviewer")]
-        public IActionResult Delete(int id) // id is ReviewID
-        {
-            string userIdStr = User.FindFirstValue("UserID");
-            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int currentUserId)) { return Unauthorized(); }
-
-            ReviewViewModel model = GetReview(id);
-            if (model == null) { return NotFound(); }
-            if (model.UserID != currentUserId) { TempData["ErrorMessage"] = "You can only delete your own reviews."; return RedirectToAction("Index"); }
-
-            return View(model); // Pass ReviewViewModel to Views/Review/Delete.cshtml
+            // If API call failed, return the view with the model and errors
+            ViewData["RestaurantName"] = await GetRestaurantNameAsync(model.RestaurantID) ?? "Selected Restaurant";
+            return View(model);
         }
 
 
         // POST: /Review/Delete/5
-        [HttpPost, ActionName("Delete")]
+        // Deletes a review via API call.
+        [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "reviewer")]
-        public IActionResult DeleteConfirmed(int id) // id is ReviewID from route/form
+        public async Task<IActionResult> Delete(int id) // id = ReviewID
         {
-            string userIdStr = User.FindFirstValue("UserID");
-            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int currentUserId)) { return Unauthorized(); }
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
+            _logger.LogInformation("User {UserId} attempting to delete review {ReviewId}", userId, id);
+
+            // Optional: Pre-check ownership via API GET before calling DELETE
+            // This provides quicker feedback if user doesn't own it, but adds an extra API call.
+            // Relying on API's DELETE endpoint to check ownership is also valid.
+
+            // --- API Call to delete Review ---
             try
             {
-                // Security Check (Again): Verify user owns the review *before* deleting
-                ReviewViewModel existingReview = GetReview(id);
-                if (existingReview == null || existingReview.UserID != currentUserId) { return NotFound(); }
+                var client = _httpClientFactory.CreateClient("Project3Api");
+                // TODO: Verify/Update Review API DELETE endpoint URL
+                string apiUrl = $"api/reviews/{id}"; // Example URL
+                _logger.LogDebug("Calling API DELETE {ApiUrl}", apiUrl);
 
-                SqlCommand cmd = new SqlCommand();
-                cmd.CommandType = CommandType.StoredProcedure;
-                cmd.CommandText = "dbo.TP_spDeleteReview"; // Use TP_ prefix
-                cmd.Parameters.AddWithValue("@ReviewID", id);
+                // API endpoint should verify ownership based on authenticated user
+                var response = await client.DeleteAsync(apiUrl);
 
-                int result = objDB.DoUpdateUsingCmdObj(cmd);
-
-                if (result > 0) { TempData["Message"] = "Review deleted successfully."; }
-                else { TempData["ErrorMessage"] = "Failed to delete review."; }
+                if (response.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation("Review {ReviewId} deleted successfully via API by User {UserId}", id, userId);
+                    TempData["SuccessMessage"] = "Review deleted successfully.";
+                }
+                else if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    _logger.LogWarning("Review Delete POST: Review {ReviewId} not found by API.", id);
+                    TempData["ErrorMessage"] = "Review not found.";
+                }
+                else if (response.StatusCode == HttpStatusCode.Forbidden)
+                {
+                    _logger.LogWarning("Review Delete POST: User {UserId} forbidden by API from deleting Review {ReviewId}.", userId, id);
+                    TempData["ErrorMessage"] = "You do not have permission to delete this review.";
+                }
+                else // Handle other API errors
+                {
+                    var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponseDto>();
+                    _logger.LogError("API call failed: Could not delete review {ReviewId}. Status: {StatusCode}, Reason: {ApiError}",
+                       id, response.StatusCode, errorResponse?.Message ?? await response.Content.ReadAsStringAsync());
+                    TempData["ErrorMessage"] = errorResponse?.Message ?? "Error deleting review. Please try again.";
+                }
             }
-            catch (Exception ex) { Console.WriteLine($"Error deleting review {id}: {ex.Message}"); TempData["ErrorMessage"] = "Error deleting review."; }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "API connection error: Could not delete review {ReviewId}", id);
+                TempData["ErrorMessage"] = "Error deleting review due to connection issue.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error deleting review {ReviewId}", id);
+                TempData["ErrorMessage"] = "An unexpected error occurred while deleting the review.";
+            }
+            // --- End API Call ---
 
-            return RedirectToAction("Index"); // Redirect back to the list of reviews
+            return RedirectToAction(nameof(Index)); // Redirect back to the list
         }
 
-
-        // --- Helper Methods ---
-
-        // Helper to get a single review (used by Edit/Delete)
-        private ReviewViewModel GetReview(int reviewId)
+        // Helper to get restaurant name (used by Create/Edit views)
+        private async Task<string?> GetRestaurantNameAsync(int restaurantId)
         {
-            ReviewViewModel review = null;
+            if (restaurantId <= 0) return null;
             try
             {
-                SqlCommand cmd = new SqlCommand();
-                cmd.CommandType = CommandType.StoredProcedure;
-                cmd.CommandText = "dbo.TP_spGetReviewById"; // Use TP_ prefix
-                cmd.Parameters.AddWithValue("@ReviewID", reviewId);
-                DataSet ds = objDB.GetDataSetUsingCmdObj(cmd);
-                if (ds?.Tables.Count > 0 && ds.Tables[0].Rows.Count > 0) { review = new ReviewViewModel(ds.Tables[0].Rows[0]); }
+                var client = _httpClientFactory.CreateClient("Project3Api");
+                // TODO: Verify/Update Restaurant API GET endpoint URL
+                // TODO: Consider fetching a simpler DTO if only Name is needed
+                string apiUrl = $"api/restaurants/{restaurantId}"; // Example URL
+                _logger.LogDebug("Calling API GET {ApiUrl} for restaurant name helper", apiUrl);
+                var restaurant = await client.GetFromJsonAsync<RestaurantViewModel>(apiUrl); // Assuming RestaurantViewModel has Name
+                return restaurant?.Name;
             }
-            catch (Exception ex) { Console.WriteLine($"Error getting review {reviewId}: {ex.Message}"); }
-            return review;
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Helper API call failed: Could not get restaurant name for ID {RestaurantId}", restaurantId);
+                return null; // Return null on error
+            }
         }
 
-        // Helper to get restaurant name (used by Create/Edit)
-        private string GetRestaurantName(int restaurantId)
+        // --- TODO: Define DTOs properly in Models/DTOs folder ---
+        // Example DTO classes (replace with actual definitions in separate files)
+        private record CreateReviewDto
         {
-            string name = null;
-            try
-            {
-                SqlCommand cmd = new SqlCommand();
-                cmd.CommandType = CommandType.Text; // Or use SP TP_spGetRestaurantNameById
-                cmd.CommandText = "SELECT Name FROM dbo.TP_Restaurants WHERE RestaurantID = @RestaurantID";
-                cmd.Parameters.AddWithValue("@RestaurantID", restaurantId);
-                DataSet ds = objDB.GetDataSetUsingCmdObj(cmd);
-                if (ds?.Tables.Count > 0 && ds.Tables[0].Rows.Count > 0) { name = ds.Tables[0].Rows[0]["Name"]?.ToString(); }
-            }
-            catch (Exception ex) { Console.WriteLine($"Error getting restaurant name {restaurantId}: {ex.Message}"); }
-            return name;
+            public int RestaurantID { get; set; }
+            public DateTime VisitDate { get; set; }
+            public string Comments { get; set; }
+            public int FoodQualityRating { get; set; }
+            public int ServiceRating { get; set; }
+            public int AtmosphereRating { get; set; }
+            public int PriceRating { get; set; }
         }
+        private record UpdateReviewDto
+        {
+            // May not need ID here if passed in route
+            public DateTime VisitDate { get; set; }
+            public string Comments { get; set; }
+            public int FoodQualityRating { get; set; }
+            public int ServiceRating { get; set; }
+            public int AtmosphereRating { get; set; }
+            public int PriceRating { get; set; }
+        }
+        // Define RestaurantViewModel if it's different from the one in Models/ViewModels
+        // private record RestaurantViewModel(int RestaurantID, string Name /*, other fields */);
+        private record ErrorResponseDto(string Message);
 
     }
 }

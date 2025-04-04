@@ -1,11 +1,9 @@
-﻿@* ============================================================================ *@
-@* Views/Account/ForgotUsername.cshtml                                          *@
-@* ============================================================================ *@
-@model Project3.Models.ForgotUsernameModel
+﻿@* Uses Project3.Models.InputModels.ForgotUsernameModel *@
+@model Project3.Models.InputModels.ForgotUsernameModel
 
 @{
-    Layout = null;
-    ViewData["Title"] = "Forgot Username - Yelp 2.0";
+    Layout = null; // Standalone page
+    ViewData["Title"] = "Forgot Username - Restaurant Reviews";
 }
 
 <!DOCTYPE html>
@@ -14,19 +12,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"]</title>
-    @* Link to Bootstrap CSS *@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    @* --- Link to Shared Account Styles --- *@
     <link rel="stylesheet" href="~/css/account-styles.css" asp-append-version="true" />
 </head>
 <body>
     <div class="login-container">
         @* Left Column - Graphic Area (Consistent) *@
         <div class="login-graphic-col">
-            <h1 class="graphic-title">Yelp 2.0</h1>
+            <h1 class="graphic-title">Restaurant Reviews</h1>
         </div>
 
-        @* Right Column - Form Area (Adapted for Forgot Username) *@
+        @* Right Column - Form Area *@
         <div class="login-form-col">
             <div class="login-form-panel">
 
@@ -35,11 +31,12 @@
 
                 <section>
                     <form id="forgotUsername" method="post">
+                        @Html.AntiForgeryToken()
                         <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
 
                         @* Email Input *@
                         <div class="mb-3">
-                            <label asp-for="Email" class="form-label">Email</label>
+                            <label asp-for="Email" class="form-label"></label>
                             <input asp-for="Email" class="form-control" type="email" autocomplete="email" aria-required="true" placeholder="name@example.com" />
                             <span asp-validation-for="Email" class="text-danger"></span>
                         </div>

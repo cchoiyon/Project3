@@ -1,0 +1,169 @@
+﻿@model RestaurantDetailViewModel
+@{
+    ViewData["Title"] = Model.Profile?.Name ?? "Restaurant Details";
+    Layout = "_AppLayout"; // Use your main application layout
+}
+
+@if (Model.Profile != null)
+{
+    @* --- Restaurant Header --- *@
+    <div class="restaurant-profile-header mb-4">
+        @* TODO: Add Profile Photo display logic if needed at top *@
+        <h1>@Model.Profile.Name</h1>
+        <div class="d-flex align-items-center mb-2">
+             @* Display calculated average rating and price level *@
+             <span class="star-rating me-3">
+                 @* TODO: Render stars based on Model.AverageRatingDisplay or calculation *@
+                 @Model.AverageRatingDisplay
+             </span>
+             <span class="price-level text-muted">
+                  @* TODO: Render price level based on Model.AveragePriceLevelDisplay or calculation *@
+                  @Model.AveragePriceLevelDisplay
+             </span>
+             @* TODO: Add link to reviews section? *@
+        </div>
+        <p class="text-muted">@Model.Profile.Cuisine - @Model.Profile.City, @Model.Profile.State</p>
+        @* Make Reservation Button *@
+        <a asp-controller="Reservation" asp-action="Create" asp-route-restaurantId="@Model.RestaurantID" class="btn btn-primary mt-2">Make Reservation</a>
+    </div>
+
+    <hr />
+
+    <div class="row">
+        <div class="col-md-8"> @* Main content area *@
+
+             @* --- Marketing Description --- *@
+             @if (!string.IsNullOrWhiteSpace(Model.Profile.MarketingDescription))
+             {
+                 <section id="description" class="mb-4">
+                     <h2>About @Model.Profile.Name</h2>
+                     <p>@Model.Profile.MarketingDescription</p>
+                 </section>
+             }
+
+             @* --- Photo Gallery --- *@
+             @if (Model.Photos != null && Model.Photos.Any())
+             {
+                 <section id="photos" class="mb-4">
+                     <h2>Photos</h2>
+                     <div class="row row-cols-2 row-cols-md-3 g-3">
+                         @foreach (var photo in Model.Photos)
+                         {
+                             <div class="col">
+                                 <figure class="figure">
+                                     @* TODO: Ensure PhotoURL is correct relative/absolute path *@
+                                     <img src="@Url.Content(photo.PhotoURL ?? "~/images/restaurant-placeholder.png")" class="figure-img img-fluid rounded" alt="@(photo.Caption ?? Model.Profile.Name)">
+                                     @if (!string.IsNullOrWhiteSpace(photo.Caption))
+                                     {
+                                         <figcaption class="figure-caption">@photo.Caption</figcaption>
+                                     }
+                                 </figure>
+                             </div>
+                         }
+                     </div>
+                 </section>
+             }
+
+             @* --- Reviews Section --- *@
+             <section id="reviews" class="mb-4">
+                 <h2>Reviews (@Model.Reviews.Count)</h2>
+                 @if (Model.Reviews != null && Model.Reviews.Any())
+                 {
+                     @foreach (var review in Model.Reviews)
+                     {
+                         <div class="card mb-3">
+                             <div class="card-body">
+                                 <div class="d-flex justify-content-between">
+                                     <h5 class="card-title mb-1">@review.ReviewerUsername</h5>
+                                     <small class="text-muted">@review.VisitDate.ToString("MMMM d, yyyy")</small>
+                                 </div>
+                                 <div class="mb-2">
+                                     @* TODO: Display star rating for this specific review *@
+                                     <span class="star-rating small">
+                                          @* Logic to display stars based on avg of Food/Service/Atmosphere? Or overall? *@
+                                     </span>
+                                 </div>
+                                 <p class="card-text">@review.Comments</p>
+                                 @* TODO: Optionally display individual ratings (Food, Service, etc.) *@
+                             </div>
+                         </div>
+                     }
+                 }
+                 else
+                 {
+                     <p>No reviews yet. Be the first to write one!</p>
+                 }
+                 @* Link to add review for THIS restaurant *@
+                 <a asp-controller="Review" asp-action="Create" asp-route-restaurantId="@Model.RestaurantID" class="btn btn-secondary">Write a Review</a>
+             </section>
+
+        </div>
+        <div class="col-md-4"> @* Sidebar Info *@
+             <div class="card sticky-top" style="top: 20px;"> @* Make card sticky *@
+                 <div class="card-body">
+                     <h5 class="card-title">Restaurant Info</h5>
+                     @* TODO: Add Map integration (Learning Opportunity / 3rd Party API?) *@
+
+                     @* --- Address --- *@
+                     <p class="mb-1">
+                         <i class="fas fa-map-marker-alt me-2"></i> @* Font Awesome icon *@
+                         @Model.Profile.Address<br />
+                         @Model.Profile.City, @Model.Profile.State @Model.Profile.ZipCode
+                     </p>
+
+                     @* --- Contact --- *@
+                     @if (!string.IsNullOrWhiteSpace(Model.Profile.Contact))
+                     {
+                         <p class="mb-1">
+                             <i class="fas fa-phone me-2"></i>
+                             @Model.Profile.Contact
+                         </p>
+                     }
+
+                      @* --- Website --- *@
+                     @if (!string.IsNullOrWhiteSpace(Model.Profile.WebsiteURL))
+                     {
+                         <p class="mb-1">
+                              <i class="fas fa-globe me-2"></i>
+                              @{
+                                  var websiteUrl = Model.Profile.WebsiteURL;
+                                  if (!websiteUrl.StartsWith("http")) { websiteUrl = "http://" + websiteUrl; }
+                              }
+                              <a href="@websiteUrl" target="_blank" rel="noopener noreferrer">Visit Website</a>
+                         </p>
+                     }
+
+                     @* --- Hours --- *@
+                      @if (!string.IsNullOrWhiteSpace(Model.Profile.Hours))
+                     {
+                         <p class="mb-1">
+                             <i class="fas fa-clock me-2"></i>
+                             Hours: @Model.Profile.Hours @* Consider formatting this better if possible *@
+                         </p>
+                     }
+
+                     @* --- Social Media --- *@
+                     @* TODO: Add Social Media Links if available *@
+
+                 </div>
+             </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="alert alert-danger">Restaurant details could not be loaded.</div>
+}
+
+@section Head {
+    @* Add specific CSS if needed for this page *@
+    <style>
+        .restaurant-profile-header h1 { margin-bottom: 0.25rem; }
+        .star-rating { color: #ffc107; } /* Example gold color */
+        .price-level { font-weight: bold; }
+        .sticky-top { /* Ensure sticky positioning works */
+            position: -webkit-sticky;
+            position: sticky;
+        }
+    </style>
+}

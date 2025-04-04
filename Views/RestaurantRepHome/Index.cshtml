@@ -1,0 +1,116 @@
+﻿@model RestaurantRepHomeViewModel
+@{
+    ViewData["Title"] = "Restaurant Dashboard";
+    Layout = "_AppLayout"; // Use your main application layout
+}
+
+@* Welcome Message *@
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Welcome, @(ViewData["Username"])!</h1>
+    @* Buttons for managing profile/reservations *@
+    <div>
+        <a asp-action="ManageProfile" class="btn btn-info me-2">Manage Profile & Photos</a>
+        <a asp-action="ManageReservations" class="btn btn-warning">Manage Reservations</a>
+    </div>
+</div>
+
+@* Display Success/Error messages from TempData *@
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+@if (TempData["InfoMessage"] != null)
+{
+    <div class="alert alert-info">@TempData["InfoMessage"]</div>
+}
+
+<div class="row">
+    @* Column 1: Restaurant Profile Summary *@
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">Your Restaurant Profile</div>
+            <div class="card-body">
+                @if (Model.RestaurantProfile != null && Model.RestaurantProfile.RestaurantID > 0)
+                {
+                    <h5 class="card-title">@Model.RestaurantProfile.Name</h5>
+                    <p class="card-text">
+                        @Model.RestaurantProfile.Address<br />
+                        @Model.RestaurantProfile.City, @Model.RestaurantProfile.State @Model.RestaurantProfile.ZipCode
+                    </p>
+                    <p class="card-text"><small class="text-muted">Cuisine: @Model.RestaurantProfile.Cuisine</small></p>
+                    @* Add more summary details if desired *@
+                    <a asp-action="ManageProfile" class="btn btn-sm btn-outline-primary mt-2">Edit Full Profile</a>
+                    <a asp-controller="Restaurant" asp-action="Details" asp-route-id="@Model.RestaurantProfile.RestaurantID" class="btn btn-sm btn-outline-secondary mt-2 ms-1">View Public Profile</a>
+                }
+                else
+                {
+                    <p>Your restaurant profile has not been created yet.</p>
+                    <a asp-action="ManageProfile" class="btn btn-primary">Create Profile</a>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* Column 2: Pending Reservations *@
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">Pending Reservations (@Model.PendingReservations.Count)</div>
+            <div class="card-body">
+                @if (Model.PendingReservations != null && Model.PendingReservations.Any())
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var res in Model.PendingReservations)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    @res.ContactName - @res.PartySize ppl
+                                    <small class="d-block text-muted">@res.ReservationDateTime.ToString("g")</small>
+                                </div>
+                                <a asp-action="ManageReservations" class="btn btn-sm btn-outline-secondary">View Details</a>
+                            </li>
+                        }
+                    </ul>
+                    <a asp-action="ManageReservations" class="btn btn-sm btn-primary mt-3">View All Reservations</a>
+                }
+                else
+                {
+                    <p>No pending reservations.</p>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* Row 2: Recent Reviews *@
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">Recent Reviews (@Model.RecentReviews.Count)</div>
+            <div class="card-body">
+                @if (Model.RecentReviews != null && Model.RecentReviews.Any())
+                {
+                    @foreach (var review in Model.RecentReviews)
+                    {
+                        <div class="border-bottom pb-2 mb-2">
+                            <div class="d-flex justify-content-between">
+                                <strong>@review.ReviewerUsername</strong>
+                                <small class="text-muted">@review.VisitDate.ToString("yyyy-MM-dd")</small>
+                            </div>
+                            <div>
+                                @* TODO: Display star rating for the review *@
+                            </div>
+                            <p class="mb-0">@review.Comments</p>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p>No recent reviews.</p>
+                }
+            </div>
+        </div>
+    </div>
+
+</div>

@@ -2,8 +2,8 @@
 using System.Net.Mail;
 using System.Net; // Required for NetworkCredential
 // using Microsoft.Extensions.Options; // No longer needed in this class if settings are passed to SendMail
-using Project3.Models; // Required for SmtpSettings
 using System.Text; // Often needed if manipulating body
+using Project3.Models.Configuration;
 
 namespace Project3.Utilities
 {

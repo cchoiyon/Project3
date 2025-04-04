@@ -1,8 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Project3.Models; // Assuming ErrorViewModel is here
 using System.Diagnostics;
 using Microsoft.AspNetCore.Authorization; // Required for [Authorize]
-using Project3.Models;
+using Project3.Models.ViewModels;
 
 namespace Project3.Controllers // Ensure namespace matches your project
 {

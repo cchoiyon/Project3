@@ -1,12 +1,11 @@
-﻿@* Views/Account/Login.cshtml *@
-@* Uses Project3.Models.LoginModel (Username, Password, RememberMe) *@
-@model Project3.Models.LoginModel
+﻿@* Uses Project3.Models.InputModels.LoginModel *@
+@model Project3.Models.InputModels.LoginModel
 
 @{
     // Set Layout to null to prevent the default _Layout.cshtml from being used
     Layout = null;
     // Set the page title specifically for the browser tab
-    ViewData["Title"] = "Login - Yelp 2.0";
+    ViewData["Title"] = "Login - Restaurant Reviews"; // Updated project name slightly
 }
 
 <!DOCTYPE html>
@@ -26,21 +25,35 @@
         @* Left Column - Graphic Area *@
         <div class="login-graphic-col">
             @* --- Added Title ON the Background --- *@
-            <h1 class="graphic-title">Yelp 2.0</h1>
+            <h1 class="graphic-title">Restaurant Reviews</h1> @* Updated project name slightly *@
         </div>
 
         @* Right Column - Form Area *@
         <div class="login-form-col">
             <div class="login-form-panel">
 
-                @* Title inspired by user request *@
-                <h1 class="login-title">Yelp 2.0</h1>
+                <h1 class="login-title">Welcome Back!</h1>
 
-                @* --- Added Subtitle --- *@
-                <p class="login-subtitle">The site where you can do whatever the OG Yelp offers but the knock off version</p>
+                <p class="login-subtitle">Log in to continue.</p>
+
+                @* Display success message from TempData (e.g., after email confirmation) *@
+                @if (TempData["Message"] != null)
+                {
+                    <div class="alert alert-success mb-3" role="alert">
+                        @TempData["Message"]
+                    </div>
+                }
+                @if (ViewBag.SuccessMessage != null) @* Also check ViewBag just in case *@
+                {
+                    <div class="alert alert-success mb-3" role="alert">
+                        @ViewBag.SuccessMessage
+                    </div>
+                }
+
 
                 <section>
-                    <form id="account" method="post">
+                    <form id="account" method="post" asp-route-returnUrl="@ViewData["ReturnUrl"]">
+                        @Html.AntiForgeryToken() @* Add AntiForgeryToken *@
                         @* Display model-level errors *@
                         <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
 
@@ -94,9 +107,9 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 
     @* Include Validation Scripts Partial View for client-side validation *@
-    @* We need to render this section even though Layout is null *@
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
 </body>
 </html>
+

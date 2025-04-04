@@ -1,271 +1,161 @@
 ﻿using System;
 using System.Data;
 using System.Data.SqlClient;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+// Add this using statement for IConfiguration
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging; // Optional: For logging within DBConnect
 
+// Ensure this namespace matches your project structure (e.g., Project3.Utilities)
 namespace Project3.Utilities
 {
     public class DBConnect
     {
-        // Main Connection String - used for the published web application and project submissions.
-        //String SqlConnectString = "server=cis-mssql1.temple.edu;Database=sp25_3342_tuo53004;User id=tuo53004;Password=thaekee4Aize";
+        private readonly IConfiguration _configuration;
+        private readonly string _connectionString;
+        private readonly ILogger<DBConnect> _logger; // Optional: Inject logger
 
-        // Home Connection String - used for working from home using SSH Tunneling.
-        String SqlConnectString = "server=127.0.0.1,5555;Database=sp25_3342_tuo53004;User id=tuo53004;Password=thaekee4Aize";
-
-        SqlConnection myConnectionSql;
-        SqlCommand objCmd;
-        SqlDataReader objDataReader;
-        DataSet ds;
-
-        public DBConnect()
+        // Constructor accepts IConfiguration and ILogger via Dependency Injection
+        public DBConnect(IConfiguration configuration, ILogger<DBConnect> logger) // Added ILogger
         {
-            myConnectionSql = new SqlConnection(SqlConnectString);
+            _configuration = configuration;
+            _logger = logger; // Store logger
+
+            // Retrieve the connection string from appsettings.json/appsettings.Development.json
+            _connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+            // Check if the connection string was found
+            if (string.IsNullOrEmpty(_connectionString))
+            {
+                _logger.LogError("Database connection string 'DefaultConnection' not found in configuration.");
+                // Throw an exception to prevent the application from starting incorrectly
+                throw new InvalidOperationException("Database connection string 'DefaultConnection' not found in configuration.");
+            }
+            _logger.LogInformation("DBConnect initialized with DefaultConnection."); // Confirm initialization
         }
 
-        public DataSet GetDataSet(String SqlSelect)
+        // Helper method to get a new connection instance
+        // Ensures that each operation gets a fresh connection from the pool
+        private SqlConnection GetConnection()
         {
-            // Input parameter is a SELECT SQL statement. Return is the Dataset 
-            // Note: The Dataset is also stored as a class variable for use 
-            // in the GetField function
-            SqlDataAdapter myDataAdapter = new SqlDataAdapter(SqlSelect, myConnectionSql);
-            DataSet myDataSet = new DataSet();
-            myDataAdapter.Fill(myDataSet);
-            ds = myDataSet;
-            return myDataSet;
+            return new SqlConnection(_connectionString);
         }
 
-        public DataSet GetDataSet(String SqlSelect, out int theRecordCount)
-        {
-            // Input parameter is a SELECT SQL statement. 
-            // Output parameter is the number of rows in the returned dataset.
-            // Return is a Dataset
-            SqlDataAdapter myDataAdapter = new SqlDataAdapter(SqlSelect, myConnectionSql);
-            DataSet myDataSet = new DataSet();
-            myDataAdapter.Fill(myDataSet);
-            ds = myDataSet;
-            theRecordCount = ds.Tables[0].Rows.Count;
-            return myDataSet;
-        }
-
-        public DataSet GetDataSet(String SqlSelect, out int theRecordCount, out String theErrorMessage)
-        {
-            // Input parameter is a SELECT SQL statement. 
-            // Output parameter (1) is the number of rows in the returned dataset.
-            // Output parameter (2) is the error message when an exception occurs.
-            // Return is a Dataset
-            try
-            {
-
-                SqlDataAdapter myDataAdapter = new SqlDataAdapter(SqlSelect, myConnectionSql);
-                DataSet myDataSet = new DataSet();
-                myDataAdapter.Fill(myDataSet);
-                ds = myDataSet;
-                theRecordCount = ds.Tables[0].Rows.Count;
-                theErrorMessage = "";
-                return myDataSet;
-            }
-            catch (Exception ex)
-            {
-                theRecordCount = 0;
-                theErrorMessage = ex.Message;
-                return null;
-            }
-        }
-
-        public DataSet GetDataSet(SqlCommand theCommand)
-        {
-            // This method is used for Stored Procedures (SELECT statement only) with Parameters
-            theCommand.Connection = myConnectionSql;
-            SqlDataAdapter myDataAdapter = new SqlDataAdapter(theCommand);
-            DataSet myDataSet = new DataSet();
-            myDataAdapter.Fill(myDataSet);
-            ds = myDataSet;
-
-            return myDataSet;
-
-        }
-
-        //public SqlDataReader GetDataReader(String SqlSelect)
-        //{
-        //    // Input parameter is a SELECT SQL statement. 
-        //    objCmd = new SqlCommand(SqlSelect, myConnectionSql);
-        //    return objCmd.ExecuteReader();
-        //}
-
-
-        public int DoUpdate(String SqlManipulate)
-        {
-            // Input parameter is a SQL manipulate statement (INSERT, UPDATE, DELETE). 
-            // Returns the number of rows affected by the update.
-            // Returns -1 when an exsception occurs.
-            objCmd = new SqlCommand(SqlManipulate, myConnectionSql);
-            try
-            {
-                myConnectionSql.Open();
-                int ret = objCmd.ExecuteNonQuery();
-                myConnectionSql.Close();
-                return ret;
-            }
-            catch (Exception ex)
-            {
-                return -1;
-            }
-        }
-
-        // Deprecated method that is required for published class examples to work.
-        public int DoUpdate(SqlCommand theCommandObject)
-        {
-            // Input parameter is a Command object containing a SQL manipulate statement (Insert, Update, Delete). 
-            // Returns the number of rows affected by the update.
-            // Returns -1 when an exsception occurs.
-            // This method is used for passing parameters to a Stored Procedure
-            try
-            {
-                theCommandObject.Connection = myConnectionSql;
-                theCommandObject.Connection.Open();
-                int ret = theCommandObject.ExecuteNonQuery();
-                theCommandObject.Connection.Close();
-                return ret;
-            }
-            catch (Exception ex)
-            {
-                return -1;
-            }
-        }
-
-        // Deprecated method that is required for published class examples to work.
-        public int DoUpdateUsingCmdObj(SqlCommand theCommandObject)
-        {
-            // Input parameter is a Command object containing a SQL manipulate statement (Insert, Update, Delete). 
-            // Returns the number of rows affected by the update.
-            // Returns -1 when an exsception occurs.
-            // This method is used for passing parameters to a Stored Procedure
-            try
-            {
-                theCommandObject.Connection = myConnectionSql;
-                theCommandObject.Connection.Open();
-                int ret = theCommandObject.ExecuteNonQuery();
-                theCommandObject.Connection.Close();
-                return ret;
-            }
-            catch (Exception ex)
-            {
-                return -1;
-            }
-        }
-
+        /// <summary>
+        /// Executes a SELECT statement (typically from a Stored Procedure) and returns a DataSet.
+        /// Manages connection opening and closing.
+        /// </summary>
+        /// <param name="theCommand">The SqlCommand object (pre-configured with CommandText, CommandType, and Parameters).</param>
+        /// <returns>A DataSet containing the results, or an empty DataSet if an error occurs.</returns>
         public DataSet GetDataSetUsingCmdObj(SqlCommand theCommand)
         {
-            // This method is used for Stored Procedures (SELECT statement only) with Parameters
-            theCommand.Connection = myConnectionSql;
-            SqlDataAdapter myDataAdapter = new SqlDataAdapter(theCommand);
             DataSet myDataSet = new DataSet();
-            myDataAdapter.Fill(myDataSet);
-            ds = myDataSet;
-
+            // Use 'using' block to ensure the connection is properly created, opened, closed, and disposed.
+            using (SqlConnection con = GetConnection())
+            {
+                theCommand.Connection = con; // Assign the connection to the command
+                try
+                {
+                    SqlDataAdapter myDataAdapter = new SqlDataAdapter(theCommand);
+                    // The Fill method automatically opens and closes the connection if it's not already open.
+                    myDataAdapter.Fill(myDataSet);
+                    _logger.LogDebug("GetDataSetUsingCmdObj executed successfully for command: {CommandText}", theCommand.CommandText);
+                }
+                catch (SqlException sqlEx)
+                {
+                    // Log the detailed SQL exception
+                    _logger.LogError(sqlEx, "SQL Error in GetDataSetUsingCmdObj for command {CommandText}. Error Number: {ErrorNumber}. Message: {ErrorMessage}",
+                                     theCommand.CommandText, sqlEx.Number, sqlEx.Message);
+                    // Return empty DataSet on error, or re-throw depending on desired handling
+                    // throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "General Error in GetDataSetUsingCmdObj for command {CommandText}", theCommand.CommandText);
+                    // Return empty DataSet on error, or re-throw
+                    // throw;
+                }
+            } // Connection is automatically disposed here by the 'using' block
             return myDataSet;
-
         }
 
-        public DataRow GetRow(DataSet theDataSet, int theRow)
+        /// <summary>
+        /// Executes an INSERT, UPDATE, or DELETE statement (typically from a Stored Procedure)
+        /// and returns the number of rows affected. Manages connection opening and closing.
+        /// </summary>
+        /// <param name="theCommand">The SqlCommand object (pre-configured with CommandText, CommandType, and Parameters).</param>
+        /// <returns>The number of rows affected, or -1 if an error occurs.</returns>
+        public int DoUpdateUsingCmdObj(SqlCommand theCommand)
         {
-            DataTable objTable = ds.Tables[0];
-            DataRow objRow = objTable.Rows[theRow];
-            return objRow;
-        }
-
-        public Array GetRows(String theCondition)
-        {
-            // Input parameters are (1) a DataSet and (2) the zero based row of the 
-            // table in the DataSet to be returned.  Returns a row.
-            DataRow[] objRow;
-            DataTable objTable = ds.Tables[0];
-            objRow = objTable.Select(theCondition);
-            return objRow;
-        }
-
-        public Object GetField(String theFieldName, int theRow)
-        {
-            // Input parameterss are (1) a Field (Column) name as a string and
-            // (2) the zero based row of the table in the DataSet 
-            // from which the field is to be extracted. Returns the value 
-            // in the field as a variant type.
-            // This function assumes that one of the getDataSet functions
-            // had been called, thus producing a ds at the class level.
-            DataTable objTable = ds.Tables[0];
-            DataRow objRow = objTable.Rows[theRow];
-            return objRow[theFieldName];
-        }
-
-        public void CommitDataSet(DataSet theDataSet)
-        {
-            // Input parameter is a DataSet. This function is used to Commit
-            // the Dataset to the Data Source when updating a disconnected ds.
-
-            SqlDataAdapter myDataAdapter = new SqlDataAdapter();
-            myDataAdapter.Update(theDataSet);
-        }
-
-        public Object ExecuteScalarFunction(SqlCommand theCommand)
-        {
-            // Input parameter is a Command object containing a Select statement 
-            // that returns a single scalar value. Returns the single scalar value.  
-            // Returns  scalar value as a Variant Type.
-            theCommand.Connection = myConnectionSql;
-            return theCommand.ExecuteScalar();
-        }
-
-        public SqlConnection GetConnection()
-        {
-            // NOTE: .NET has implemented its Stored User Defined Functions only 
-            // with the Managed Provider for SQL Server, 
-            // not the OLEDB provider.
-            return myConnectionSql;
-        }
-
-        public void CloseConnection()
-        {
-            try
+            int rowsAffected = -1; // Default to error/no rows affected
+            // Use 'using' block for the connection
+            using (SqlConnection con = GetConnection())
             {
-                myConnectionSql.Close();
+                theCommand.Connection = con; // Assign the connection to the command
+                try
+                {
+                    con.Open(); // Explicitly open the connection for ExecuteNonQuery
+                    rowsAffected = theCommand.ExecuteNonQuery();
+                    _logger.LogDebug("DoUpdateUsingCmdObj executed successfully for command: {CommandText}. Rows Affected: {RowsAffected}",
+                                     theCommand.CommandText, rowsAffected);
+                }
+                catch (SqlException sqlEx)
+                {
+                    _logger.LogError(sqlEx, "SQL Error in DoUpdateUsingCmdObj for command {CommandText}. Error Number: {ErrorNumber}. Message: {ErrorMessage}",
+                                     theCommand.CommandText, sqlEx.Number, sqlEx.Message);
+                    rowsAffected = -1; // Ensure error code is returned
+                    // throw; // Optionally re-throw
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "General Error in DoUpdateUsingCmdObj for command {CommandText}", theCommand.CommandText);
+                    rowsAffected = -1; // Ensure error code is returned
+                    // throw; // Optionally re-throw
+                }
+                // No explicit Close() needed - 'using' block handles closing/disposing
             }
-            catch (Exception ex)
-            {
-                // Catch exception created when trying to close a closed connection.
-            }
+            return rowsAffected;
         }
 
-        public void ResetConnection()
+        /// <summary>
+        /// Executes a command (typically a Stored Procedure for INSERT) that is expected
+        /// to return a single scalar value (e.g., the new identity/ID).
+        /// Manages connection opening and closing.
+        /// </summary>
+        /// <param name="theCommand">The SqlCommand object (pre-configured with CommandText, CommandType, and Parameters).</param>
+        /// <returns>The scalar value returned by the command, or null if an error occurs or no value is returned.</returns>
+        public async Task<object> ExecuteScalarUsingCmdObjAsync(SqlCommand theCommand)
         {
-            try
+            object result = null;
+            using (SqlConnection con = GetConnection())
             {
-                myConnectionSql.Close();
-                myConnectionSql.Open();
+                theCommand.Connection = con;
+                try
+                {
+                    await con.OpenAsync(); // Open asynchronously
+                    result = await theCommand.ExecuteScalarAsync(); // Execute asynchronously
+                    _logger.LogDebug("ExecuteScalarUsingCmdObjAsync executed successfully for command: {CommandText}. Result: {Result}",
+                                     theCommand.CommandText, result ?? "NULL");
+                }
+                catch (SqlException sqlEx)
+                {
+                    _logger.LogError(sqlEx, "SQL Error in ExecuteScalarUsingCmdObjAsync for command {CommandText}. Error Number: {ErrorNumber}. Message: {ErrorMessage}",
+                                     theCommand.CommandText, sqlEx.Number, sqlEx.Message);
+                    result = null; // Indicate error
+                    // throw; // Optionally re-throw
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "General Error in ExecuteScalarUsingCmdObjAsync for command {CommandText}", theCommand.CommandText);
+                    result = null; // Indicate error
+                    // throw; // Optionally re-throw
+                }
             }
-            catch (Exception ex)
-            {
-                // Catch exception created when trying to close a closed connection.
-            }
+            return result;
         }
 
-        // The Deconstructor
-        ~DBConnect()
-        {
-            // Close any open connections to the database before the objects of this class
-            // are garbage collected.
-            try
-            {
-                myConnectionSql.Close();
-            }
-            catch (Exception ex)
-            {
-                // Catch exception created when trying to close a closed connection.
-            }
-        }
+        // NOTE: Methods like GetRow, GetField, GetRows that relied on the class-level 'ds'
+        // should be removed or refactored, as storing state like that is problematic.
+        // Data should be processed directly from the DataSet returned by GetDataSetUsingCmdObj.
 
-    }   // end class
-}   // end namespace
+    } // end class
+} // end namespace
