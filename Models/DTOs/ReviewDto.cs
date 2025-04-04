@@ -1,27 +1,40 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+﻿using System; // Needed for DateTime
 
-// DTOs for API communication
 namespace Project3.Models.DTOs
 {
-    /// <summary>
-    /// Data returned FROM the API representing a review.
-    /// Could be the same as ReviewViewModel or tailored.
-    /// </summary>
+    // This DTO (Data Transfer Object) is used to carry review data,
+    // often between the database/API and the view models/views.
     public class ReviewDto
     {
-        public int ReviewID { get; set; }
-        public int RestaurantID { get; set; }
-        public string RestaurantName { get; set; } // Include name if API performs JOIN
-        public int UserID { get; set; } // Might omit this depending on use case
-        public string ReviewerUsername { get; set; } // Include if API performs JOIN
-        public DateTime VisitDate { get; set; }
-        public string Comments { get; set; }
-        public int FoodQualityRating { get; set; }
-        public int ServiceRating { get; set; }
-        public int AtmosphereRating { get; set; }
-        public int PriceRating { get; set; }
-        public DateTime CreatedDate { get; set; }
+        // Unique identifier for the review
+        public int ReviewId { get; set; }
+
+        // Name of the restaurant being reviewed
+        // Ensure this property exists if used in the view (like in ManageReviews.cshtml)
+        public string RestaurantName { get; set; }
+
+        // FIX: Added the missing 'Rating' property.
+        // Adjust the data type (decimal, int, double?) if needed based on how you store ratings.
+        public decimal Rating { get; set; }
+
+        // The text comment of the review
+        // Ensure this property exists if used in the view
+        public string Comment { get; set; }
+
+        // The date the review was created or submitted
+        // Ensure this property exists if used in the view
+        public DateTime ReviewDate { get; set; }
+
+        // You might also include other relevant fields like:
+        // public string ReviewerUsername { get; set; }
+        // public int RestaurantId { get; set; }
+
+        // Constructor (optional)
+        public ReviewDto()
+        {
+            // Initialize default values if necessary
+            // RestaurantName = string.Empty;
+            // Comment = string.Empty;
+        }
     }
 }
