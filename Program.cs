@@ -7,7 +7,9 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Builder;
 using System;
 using Microsoft.Extensions.Configuration;
-
+using Project3.Services;
+using Microsoft.EntityFrameworkCore;
+using Project3.Database;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,9 +18,14 @@ var builder = WebApplication.CreateBuilder(args);
 // Load email settings from appsettings.json
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 
+// Configure DbContext
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 // Register my custom services
 builder.Services.AddTransient<Project3.Utilities.Email>();
 builder.Services.AddScoped<Project3.Utilities.DBConnect>(); // Scoped for DB stuff seems right
+builder.Services.AddScoped<IUserService, UserService>();
 
 // Need this for making HTTP calls (IHttpClientFactory)
 builder.Services.AddHttpClient();
@@ -87,10 +94,10 @@ app.UseRouting(); // Decides which endpoint to use
 
 // Session needs to be configured before Auth and endpoint mapping
 app.UseSession();
- 
-// Auth middleware order is important: UseAuthentication first!
-app.UseAuthentication(); // Checks who the user is
-app.UseAuthorization();  // Checks if the user is allowed
+
+// Authentication & Authorization
+app.UseAuthentication();
+app.UseAuthorization();
 
 // --- Map Endpoints ---
 

@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Authorization; // Required for [Authorize]
 using Project3.Models.ViewModels;
+using System.Security.Claims;
 
 namespace Project3.Controllers // Ensure namespace matches your project
 {
@@ -20,19 +21,36 @@ namespace Project3.Controllers // Ensure namespace matches your project
         // You might later change this to show a specific dashboard based on user type.
         public IActionResult Index()
         {
-            // Example: Check user type from session and redirect
-            // string userType = HttpContext.Session.GetString("UserType");
-            // if (userType == "reviewer") {
-            //     return RedirectToAction("Index", "ReviewerHome"); // Redirect to reviewer dashboard
-            // } else if (userType == "restaurantRep") {
-            //     return RedirectToAction("Index", "RestaurantRepHome"); // Redirect to rep dashboard
-            // } else {
-            //     // Unknown user type or session issue, maybe redirect to login?
-            //     return RedirectToAction("Login", "Account");
-            // }
-
-            // For now, just return the default view if authorized
-            return View();
+            // Log all claims for debugging
+            _logger.LogInformation("User claims:");
+            foreach (var claim in User.Claims)
+            {
+                _logger.LogInformation($"Claim Type: {claim.Type}, Value: {claim.Value}");
+            }
+            
+            // Check roles using IsInRole
+            bool isRestaurantRep = User.IsInRole("RestaurantRep");
+            bool isReviewer = User.IsInRole("Reviewer");
+            
+            _logger.LogInformation($"User is in RestaurantRep role: {isRestaurantRep}");
+            _logger.LogInformation($"User is in Reviewer role: {isReviewer}");
+            
+            // Redirect based on role
+            if (isRestaurantRep)
+            {
+                _logger.LogInformation("Redirecting to RestaurantRepHome/Index");
+                return RedirectToAction("Index", "RestaurantRepHome");
+            }
+            else if (isReviewer)
+            {
+                _logger.LogInformation("Redirecting to ReviewerHome/Index");
+                return RedirectToAction("Index", "ReviewerHome");
+            }
+            else
+            {
+                _logger.LogWarning("User is not in any recognized role, redirecting to Account/Login");
+                return RedirectToAction("Login", "Account");
+            }
         }
 
         // The Privacy action is also protected by the [Authorize] attribute on the class

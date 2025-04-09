@@ -9,7 +9,7 @@ using System.Security.Claims; // Needed for getting user ID potentially
 namespace Project3.Controllers
 {
     // Ensure the controller requires authorization so only logged-in users can access it
-    [Authorize] // You might need to specify roles later, e.g., [Authorize(Roles = "Reviewer")]
+    [Authorize(Roles = "Reviewer")] // Updated to use the correct role name
     public class ReviewerHomeController : Controller
     {
         // --- Constructor ---

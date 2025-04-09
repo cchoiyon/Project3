@@ -98,6 +98,8 @@ namespace Project3.Models.ViewModels
         [Display(Name = "Average Price")]
         public double AveragePriceRating { get { return _averagePriceRating; } set { _averagePriceRating = value; } } // Typically set from API result
 
+        public double AverageRating { get; set; }
+        public double AveragePriceLevel { get; set; }
 
         // Constructor
         public RestaurantViewModel() { }

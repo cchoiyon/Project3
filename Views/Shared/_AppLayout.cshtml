@@ -27,29 +27,24 @@
         @* Basic Bootstrap Navigation Bar *@
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container-fluid">
-                @* --- Dynamic Brand/Home Link Logic --- *@
+                @* --- Dynamic Link Logic --- *@
                 @{
-                    // Default to the LOGIN page for logged-out users
-                    string homeController = "Account";
-                    string homeAction = "Login";
-                    string brandText = "RestaurantReviews"; // Default brand text
-                    string currentRole = ""; // Variable to store the determined role
+                    // Default to Home/Index for non-authenticated users
+                    string homeController = "Home";
+                    string homeAction = "Index";
+                    string brandText = "Project3"; // Default brand text
 
                     // Check if the user is logged in
                     if (User.Identity != null && User.Identity.IsAuthenticated)
                     {
-                        // Get the role claim value
-                        currentRole = User.FindFirstValue(ClaimTypes.Role);
-
                         // If logged in, determine their role dashboard homepage and brand text
-                        // FIX: Using case-insensitive comparison for roles
-                        if ("Reviewer".Equals(currentRole, StringComparison.OrdinalIgnoreCase))
+                        if (User.IsInRole("Reviewer"))
                         {
                             homeController = "ReviewerHome";
                             homeAction = "Index";
                             brandText = "Reviewer Portal"; // <-- Text for Reviewer
                         }
-                        else if ("RestaurantRep".Equals(currentRole, StringComparison.OrdinalIgnoreCase))
+                        else if (User.IsInRole("RestaurantRep"))
                         {
                             homeController = "RestaurantRepHome";
                             homeAction = "Index";
@@ -70,8 +65,8 @@
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     @* --- Role-Specific Navigation Items --- *@
                     <ul class="navbar-nav flex-grow-1">
-                        @* Links visible only to Reviewers (Using case-insensitive check) *@
-                        @if ("Reviewer".Equals(currentRole, StringComparison.OrdinalIgnoreCase))
+                        @* Links visible only to Reviewers *@
+                        @if (User.IsInRole("Reviewer"))
                         {
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="ReviewerHome" asp-action="Index">Dashboard</a>
@@ -85,8 +80,8 @@
                             @* Add other Reviewer-specific links here *@
                         }
 
-                        @* Links visible only to Restaurant Representatives (Using case-insensitive check) *@
-                        @if ("RestaurantRep".Equals(currentRole, StringComparison.OrdinalIgnoreCase))
+                        @* Links visible only to Restaurant Representatives *@
+                        @if (User.IsInRole("RestaurantRep"))
                         {
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="RestaurantRepHome" asp-action="Index">Dashboard</a>

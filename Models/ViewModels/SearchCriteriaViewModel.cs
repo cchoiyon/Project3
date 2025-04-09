@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic; // For List
+using System.ComponentModel.DataAnnotations; // For Display attribute
 
 namespace Project3.Models.ViewModels
 {
     /// <summary>
     /// ViewModel for holding search criteria from the form.
-    /// Uses explicit properties style. Manual validation needed in controller.
+    /// All fields are optional to allow flexible searching.
     /// </summary>
     [Serializable]
     public class SearchCriteriaViewModel
@@ -17,13 +18,40 @@ namespace Project3.Models.ViewModels
         private string _cuisineInput; // e.g., "Italian,Mexican" or handle individually
         private string _city;
         private string _state;
+        private List<string> _availableCuisines;
 
-        // Public properties
-        public string CuisineInput { get { return _cuisineInput; } set { _cuisineInput = value; } }
-        public string City { get { return _city; } set { _city = value; } }
-        public string State { get { return _state; } set { _state = value; } }
+        // Public properties - all optional with no validation
+        [Display(Name = "Cuisine Type")]
+        public string CuisineInput 
+        { 
+            get { return _cuisineInput; } 
+            set { _cuisineInput = value?.Trim(); } 
+        }
+
+        [Display(Name = "City")]
+        public string City 
+        { 
+            get { return _city; } 
+            set { _city = value?.Trim(); } 
+        }
+
+        [Display(Name = "State")]
+        public string State 
+        { 
+            get { return _state; } 
+            set { _state = value?.Trim()?.ToUpper(); } 
+        }
+
+        public List<string> AvailableCuisines 
+        { 
+            get { return _availableCuisines ?? (_availableCuisines = new List<string>()); }
+            set { _availableCuisines = value; } 
+        }
 
         // Constructor
-        public SearchCriteriaViewModel() { }
+        public SearchCriteriaViewModel() 
+        {
+            _availableCuisines = new List<string>();
+        }
     }
 }
