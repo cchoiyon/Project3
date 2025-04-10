@@ -1,183 +1,219 @@
 ﻿@* Use the RestaurantViewModel for this view *@
 @model Project3.Models.ViewModels.RestaurantViewModel
 @{
-    ViewData["Title"] = ViewData["Title"]?.ToString() ?? "Manage Profile"; // Use title set by controller
-    bool isNewProfile = ViewData["IsNewProfile"] as bool? ?? false;
+    ViewData["Title"] = ViewData["Title"] ?? "Manage Restaurant Profile";
+    var isNewProfile = ViewData["IsNewProfile"] as bool? ?? true;
     Layout = "~/Views/Shared/_AppLayout.cshtml";
 }
 
-<div class="welcome-section">
-    <h1 class="display-5">@ViewData["Title"]</h1>
-    <p class="lead text-muted">@(isNewProfile ? "Create your restaurant profile" : "Update your restaurant profile")</p>
-</div>
+<div class="container mt-4">
+    <h2 class="mb-4">@ViewData["Title"]</h2>
 
-@* Display Success/Error messages from TempData/ViewData *@
-@if (TempData["SuccessMessage"] != null)
-{
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-}
-@if (ViewData["ErrorMessage"] != null)
-{
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <i class="fas fa-exclamation-circle me-2"></i> @ViewData["ErrorMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-}
+    @if (!string.IsNullOrEmpty(TempData["ErrorMessage"]?.ToString()))
+    {
+        <div class="alert alert-danger">
+            @TempData["ErrorMessage"]
+        </div>
+    }
 
-@* Display validation summary errors *@
-<div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+    <form asp-action="ManageProfile" method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+        <input type="hidden" asp-for="RestaurantID" />
+        @if (!string.IsNullOrEmpty(Model.ProfilePhoto))
+        {
+            <input type="hidden" asp-for="ProfilePhoto" />
+        }
+        @if (!string.IsNullOrEmpty(Model.LogoPhoto))
+        {
+            <input type="hidden" asp-for="LogoPhoto" />
+        }
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-@* Check if the model is null (which shouldn't happen if controller logic is correct, but good practice) *@
-@if (Model == null)
-{
-    <div class="alert alert-warning" role="alert">
-        <i class="fas fa-exclamation-triangle me-2"></i> Could not load profile information to display the form. Please try refreshing the page or contact support if the problem persists.
-    </div>
-}
-else
-{
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <form asp-action="ManageProfile" method="post">
-                @* Include Anti-Forgery Token *@
-                @Html.AntiForgeryToken()
-
-                @* Hidden field for the Restaurant ID - essential for POST *@
-                <input type="hidden" asp-for="RestaurantID" />
-
-                <div class="row g-3">
-                    @* Restaurant Name (Required) *@
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="Name" class="form-label"></label>
-                        <input asp-for="Name" class="form-control" />
-                        <span asp-validation-for="Name" class="text-danger"></span>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Basic Information</h5>
                     </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label asp-for="Name" class="form-label">Restaurant Name</label>
+                            <input asp-for="Name" class="form-control" required />
+                            <span asp-validation-for="Name" class="text-danger"></span>
+                        </div>
 
-                    @* Cuisine *@
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="Cuisine" class="form-label"></label>
-                        <input asp-for="Cuisine" class="form-control" placeholder="e.g., Italian, Mexican, Cafe" />
-                        <span asp-validation-for="Cuisine" class="text-danger"></span>
-                    </div>
+                        <div class="mb-3">
+                            <label asp-for="Owner" class="form-label">Owner Name</label>
+                            <input asp-for="Owner" class="form-control" />
+                            <span asp-validation-for="Owner" class="text-danger"></span>
+                        </div>
 
-                    @* Address *@
-                    <div class="col-12 mb-3">
-                        <label asp-for="Address" class="form-label"></label>
-                        <input asp-for="Address" class="form-control" placeholder="123 Main St" />
-                        <span asp-validation-for="Address" class="text-danger"></span>
-                    </div>
+                        <div class="mb-3">
+                            <label asp-for="Cuisine" class="form-label">Cuisine Type</label>
+                            <select asp-for="Cuisine" class="form-select" asp-items="@(ViewData["Cuisines"] as SelectList)">
+                                <option value="">-- Select Cuisine --</option>
+                            </select>
+                            <span asp-validation-for="Cuisine" class="text-danger"></span>
+                        </div>
 
-                    @* City *@
-                    <div class="col-md-5 mb-3">
-                        <label asp-for="City" class="form-label"></label>
-                        <input asp-for="City" class="form-control" />
-                        <span asp-validation-for="City" class="text-danger"></span>
-                    </div>
-
-                    @* State *@
-                    <div class="col-md-4 mb-3">
-                        <label asp-for="State" class="form-label"></label>
-                        <input asp-for="State" class="form-control" placeholder="e.g., PA, NY" />
-                        <span asp-validation-for="State" class="text-danger"></span>
-                    </div>
-
-                    @* Zip Code *@
-                    <div class="col-md-3 mb-3">
-                        <label asp-for="ZipCode" class="form-label"></label>
-                        <input asp-for="ZipCode" class="form-control" placeholder="e.g., 19104" />
-                        <span asp-validation-for="ZipCode" class="text-danger"></span>
-                    </div>
-
-                    @* Contact (Phone) *@
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="Contact" class="form-label"></label>
-                        <input asp-for="Contact" class="form-control" placeholder="e.g., (215) 555-1212" />
-                        <span asp-validation-for="Contact" class="text-danger"></span>
-                    </div>
-
-                    @* Website URL *@
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="WebsiteURL" class="form-label"></label>
-                        <input asp-for="WebsiteURL" class="form-control" placeholder="http://www.yourrestaurant.com" />
-                        <span asp-validation-for="WebsiteURL" class="text-danger"></span>
-                    </div>
-
-                    @* Hours *@
-                    <div class="col-12 mb-3">
-                        <label asp-for="Hours" class="form-label"></label>
-                        <textarea asp-for="Hours" class="form-control" rows="3" placeholder="e.g., Mon-Fri: 11am - 10pm, Sat-Sun: 9am - 11pm"></textarea>
-                        <span asp-validation-for="Hours" class="text-danger"></span>
-                    </div>
-
-                    @* Marketing Description *@
-                    <div class="col-12 mb-3">
-                        <label asp-for="MarketingDescription" class="form-label"></label>
-                        <textarea asp-for="MarketingDescription" class="form-control" rows="5" placeholder="Describe what makes your restaurant special..."></textarea>
-                        <span asp-validation-for="MarketingDescription" class="text-danger"></span>
-                    </div>
-
-                    @* Social Media *@
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="SocialMedia" class="form-label"></label>
-                        <input asp-for="SocialMedia" class="form-control" placeholder="e.g., facebook.com/yourpage, instagram.com/yourhandle" />
-                        <span asp-validation-for="SocialMedia" class="text-danger"></span>
-                    </div>
-
-                    @* Owner *@
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="Owner" class="form-label"></label>
-                        <input asp-for="Owner" class="form-control" />
-                        <span asp-validation-for="Owner" class="text-danger"></span>
-                    </div>
-
-                    @* Profile Photo URL (Consider using a file upload mechanism later) *@
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="ProfilePhoto" class="form-label">Profile Photo URL</label>
-                        <input asp-for="ProfilePhoto" class="form-control" placeholder="Enter URL for profile photo" />
-                        <span asp-validation-for="ProfilePhoto" class="text-danger"></span>
-                        @if (!string.IsNullOrWhiteSpace(Model.ProfilePhoto))
-                        {
-                            <div class="mt-2">
-                                <img src="@Model.ProfilePhoto" alt="Profile Photo Preview" class="img-thumbnail" style="max-height: 100px;" onerror="this.style.display='none'" />
-                            </div>
-                        }
-                    </div>
-
-                    @* Logo Photo URL (Consider using a file upload mechanism later) *@
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="LogoPhoto" class="form-label">Logo Photo URL</label>
-                        <input asp-for="LogoPhoto" class="form-control" placeholder="Enter URL for logo photo" />
-                        <span asp-validation-for="LogoPhoto" class="text-danger"></span>
-                        @if (!string.IsNullOrWhiteSpace(Model.LogoPhoto))
-                        {
-                            <div class="mt-2">
-                                <img src="@Model.LogoPhoto" alt="Logo Photo Preview" class="img-thumbnail" style="max-height: 100px;" onerror="this.style.display='none'" />
-                            </div>
-                        }
-                    </div>
-
-                    @* Submit Button *@
-                    <div class="col-12">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save me-2"></i> @(isNewProfile ? "Create Profile" : "Update Profile")
-                        </button>
-                        <a asp-action="Index" class="btn btn-secondary ms-2">
-                            <i class="fas fa-times me-2"></i> Cancel
-                        </a>
+                        <div class="mb-3">
+                            <label asp-for="Hours" class="form-label">Operating Hours</label>
+                            <textarea asp-for="Hours" class="form-control" rows="3"></textarea>
+                            <span asp-validation-for="Hours" class="text-danger"></span>
+                            <small class="form-text text-muted">Example: Mon-Fri: 11am-10pm, Sat-Sun: 12pm-11pm</small>
+                        </div>
                     </div>
                 </div>
-            </form>
-        </div>
-    </div>
-}
+            </div>
 
-@* Include client-side validation scripts *@
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Contact Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label asp-for="Address" class="form-label">Street Address</label>
+                            <input asp-for="Address" class="form-control" />
+                            <span asp-validation-for="Address" class="text-danger"></span>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="City" class="form-label">City</label>
+                                <input asp-for="City" class="form-control" />
+                                <span asp-validation-for="City" class="text-danger"></span>
+                            </div>
+
+                            <div class="col-md-3 mb-3">
+                                <label asp-for="State" class="form-label">State</label>
+                                <input asp-for="State" class="form-control" maxlength="2" />
+                                <span asp-validation-for="State" class="text-danger"></span>
+                            </div>
+
+                            <div class="col-md-3 mb-3">
+                                <label asp-for="ZipCode" class="form-label">ZIP Code</label>
+                                <input asp-for="ZipCode" class="form-control" maxlength="5" />
+                                <span asp-validation-for="ZipCode" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Contact" class="form-label">Contact Information</label>
+                            <input asp-for="Contact" class="form-control" />
+                            <span asp-validation-for="Contact" class="text-danger"></span>
+                            <small class="form-text text-muted">Phone number and email</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Online Presence</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label asp-for="WebsiteURL" class="form-label">Website URL</label>
+                            <input asp-for="WebsiteURL" class="form-control" type="url" />
+                            <span asp-validation-for="WebsiteURL" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="SocialMedia" class="form-label">Social Media Links</label>
+                            <textarea asp-for="SocialMedia" class="form-control" rows="2"></textarea>
+                            <span asp-validation-for="SocialMedia" class="text-danger"></span>
+                            <small class="form-text text-muted">Enter your social media links (Facebook, Instagram, Twitter, etc.)</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="MarketingDescription" class="form-label">Restaurant Description</label>
+                            <textarea asp-for="MarketingDescription" class="form-control" rows="4"></textarea>
+                            <span asp-validation-for="MarketingDescription" class="text-danger"></span>
+                            <small class="form-text text-muted">Describe your restaurant, specialties, and what makes it unique</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Profile Photo</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(Model.ProfilePhoto))
+                        {
+                            <div class="mb-3">
+                                <img src="@Model.ProfilePhoto" alt="Current Profile Photo" class="img-thumbnail" style="max-width: 200px;" />
+                            </div>
+                        }
+                        <div class="mb-3">
+                            <label asp-for="ProfilePhotoFile" class="form-label">Update Profile Photo</label>
+                            <input type="file" asp-for="ProfilePhotoFile" class="form-control" accept="image/*" />
+                            <span asp-validation-for="ProfilePhotoFile" class="text-danger"></span>
+                            <small class="form-text text-muted">Leave empty to keep current photo</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Logo</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(Model.LogoPhoto))
+                        {
+                            <div class="mb-3">
+                                <img src="@Model.LogoPhoto" alt="Current Logo" class="img-thumbnail" style="max-width: 200px;" />
+                            </div>
+                        }
+                        <div class="mb-3">
+                            <label asp-for="LogoPhotoFile" class="form-label">Update Logo</label>
+                            <input type="file" asp-for="LogoPhotoFile" class="form-control" accept="image/*" />
+                            <span asp-validation-for="LogoPhotoFile" class="text-danger"></span>
+                            <small class="form-text text-muted">Leave empty to keep current logo</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4 mb-5">
+            <div class="col-12 text-center">
+                <button type="submit" class="btn btn-primary btn-lg px-5">
+                    @(isNewProfile ? "Create Profile" : "Save Changes")
+                </button>
+                <a asp-action="Index" class="btn btn-secondary btn-lg px-5 ms-3">Cancel</a>
+            </div>
+        </div>
+    </form>
+</div>
+
 @section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
+    <script>
+        // Enable Bootstrap form validation
+        (function () {
+            'use strict'
+            var forms = document.querySelectorAll('.needs-validation')
+            Array.prototype.slice.call(forms)
+                .forEach(function (form) {
+                    form.addEventListener('submit', function (event) {
+                        if (!form.checkValidity()) {
+                            event.preventDefault()
+                            event.stopPropagation()
+                        }
+                        form.classList.add('was-validated')
+                    }, false)
+                })
+        })()
+    </script>
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
 }
 

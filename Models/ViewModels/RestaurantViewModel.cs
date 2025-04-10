@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations; // For potential future validation attributes
+using Microsoft.AspNetCore.Http;
 
 // Ensure this namespace matches your folder structure
 namespace Project3.Models.ViewModels
@@ -41,52 +42,47 @@ namespace Project3.Models.ViewModels
         public int RestaurantID { get { return _restaurantID; } set { _restaurantID = value; } }
 
         // Core Info (Editable in ManageProfile)
-        [Required(ErrorMessage = "Restaurant Name is required.")] // Example Validation
-        [StringLength(200)]
+        [Required(ErrorMessage = "Restaurant name is required")]
+        [StringLength(100, ErrorMessage = "Restaurant name cannot exceed 100 characters")]
         public string Name { get { return _name; } set { _name = value; } }
 
-        [StringLength(255)]
+        [StringLength(200, ErrorMessage = "Address cannot exceed 200 characters")]
         public string Address { get { return _address; } set { _address = value; } }
 
-        [StringLength(100)]
+        [StringLength(50, ErrorMessage = "City cannot exceed 50 characters")]
         public string City { get { return _city; } set { _city = value; } }
 
-        [StringLength(50)]
+        [StringLength(2, ErrorMessage = "State must be 2 characters")]
         public string State { get { return _state; } set { _state = value; } }
 
-        [StringLength(10)]
-        [Display(Name = "Zip Code")]
+        [StringLength(10, ErrorMessage = "ZIP code cannot exceed 10 characters")]
         public string ZipCode { get { return _zipCode; } set { _zipCode = value; } }
 
-        [StringLength(100)]
+        [StringLength(50, ErrorMessage = "Cuisine cannot exceed 50 characters")]
         public string Cuisine { get { return _cuisine; } set { _cuisine = value; } }
 
-        [StringLength(255)]
-        [Display(Name = "Operating Hours")]
+        [StringLength(500, ErrorMessage = "Hours cannot exceed 500 characters")]
         public string Hours { get { return _hours; } set { _hours = value; } }
 
-        [StringLength(100)]
-        [Display(Name = "Contact Phone/Info")]
+        [StringLength(100, ErrorMessage = "Contact information cannot exceed 100 characters")]
         public string Contact { get { return _contact; } set { _contact = value; } }
 
-        [DataType(DataType.MultilineText)]
-        [Display(Name = "Marketing Description")]
+        [StringLength(1000, ErrorMessage = "Marketing description cannot exceed 1000 characters")]
         public string MarketingDescription { get { return _marketingDescription; } set { _marketingDescription = value; } }
 
-        [Url]
-        [Display(Name = "Website URL")]
+        [Url(ErrorMessage = "Please enter a valid URL")]
+        [StringLength(200, ErrorMessage = "Website URL cannot exceed 200 characters")]
         public string WebsiteURL { get { return _websiteURL; } set { _websiteURL = value; } }
 
-        [Display(Name = "Social Media Links")]
+        [StringLength(500, ErrorMessage = "Social media links cannot exceed 500 characters")]
         public string SocialMedia { get { return _socialMedia; } set { _socialMedia = value; } }
 
-        [StringLength(100)]
-        [Display(Name = "Owner Name")]
+        [StringLength(100, ErrorMessage = "Owner name cannot exceed 100 characters")]
         public string Owner { get { return _owner; } set { _owner = value; } }
 
         // Photo URLs (Primary ones stored in TP_Restaurants)
-        public string ProfilePhoto { get { return _profilePhoto; } set { _profilePhoto = value; } }
-        public string LogoPhoto { get { return _logoPhoto; } set { _logoPhoto = value; } }
+        public string? ProfilePhoto { get; set; }
+        public string? LogoPhoto { get; set; }
 
         // Calculated/Aggregated Properties (Read-only in forms, set by Controller/API)
         [Display(Name = "Overall Rating")]
@@ -99,7 +95,11 @@ namespace Project3.Models.ViewModels
         public double AveragePriceRating { get { return _averagePriceRating; } set { _averagePriceRating = value; } } // Typically set from API result
 
         public double AverageRating { get; set; }
-        public double AveragePriceLevel { get; set; }
+        public int AveragePriceLevel { get; set; }
+
+        // File upload properties - already optional
+        public IFormFile? ProfilePhotoFile { get; set; }
+        public IFormFile? LogoPhotoFile { get; set; }
 
         // Constructor
         public RestaurantViewModel() { }

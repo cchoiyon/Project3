@@ -1,4 +1,5 @@
 ﻿@model RestaurantDetailViewModel
+@using System.Security.Claims
 @{
     ViewData["Title"] = Model.Profile?.Name ?? "Restaurant Details";
     Layout = "_AppLayout"; // Use your main application layout
@@ -23,8 +24,10 @@
              @* TODO: Add link to reviews section? *@
         </div>
         <p class="text-muted">@Model.Profile.Cuisine - @Model.Profile.City, @Model.Profile.State</p>
-        @* Make Reservation Button *@
-        <a asp-controller="Reservation" asp-action="Create" asp-route-restaurantId="@Model.RestaurantID" class="btn btn-primary mt-2">Make Reservation</a>
+        @* Make Reservation Button - Now triggers modal *@
+        <button type="button" class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#reservationModal">
+            Make Reservation
+        </button>
     </div>
 
     <hr />
@@ -93,8 +96,11 @@
                  {
                      <p>No reviews yet. Be the first to write one!</p>
                  }
-                 @* Link to add review for THIS restaurant *@
-                 <a asp-controller="Review" asp-action="Create" asp-route-restaurantId="@Model.RestaurantID" class="btn btn-secondary">Write a Review</a>
+                 @* Only show review button for reviewers *@
+                 @if (User.IsInRole("Reviewer"))
+                 {
+                     <a asp-controller="Review" asp-action="Create" asp-route-restaurantId="@Model.RestaurantID" class="btn btn-secondary">Write a Review</a>
+                 }
              </section>
 
         </div>
@@ -149,6 +155,60 @@
              </div>
         </div>
     </div>
+
+    @* Reservation Modal *@
+    <div class="modal fade" id="reservationModal" tabindex="-1" aria-labelledby="reservationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="reservationModalLabel">Make a Reservation at @Model.Profile.Name</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="reservationForm" asp-controller="Reservation" asp-action="Create" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="RestaurantID" value="@Model.RestaurantID" />
+                        
+                        <div class="mb-3">
+                            <label for="ContactName" class="form-label">Contact Name</label>
+                            <input type="text" class="form-control" id="ContactName" name="ContactName" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="Phone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="Phone" name="Phone" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="Email" class="form-label">Email Address</label>
+                            <input type="email" class="form-control" id="Email" name="Email" required>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="ReservationDateTime" class="form-label">Date & Time</label>
+                                <input type="datetime-local" class="form-control" id="ReservationDateTime" name="ReservationDateTime" required>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="PartySize" class="form-label">Party Size</label>
+                                <input type="number" class="form-control" id="PartySize" name="PartySize" min="1" max="20" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="SpecialRequests" class="form-label">Special Requests (Optional)</label>
+                            <textarea class="form-control" id="SpecialRequests" name="SpecialRequests" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" form="reservationForm" class="btn btn-primary">Submit Reservation</button>
+                </div>
+            </div>
+        </div>
+    </div>
 }
 else
 {
@@ -166,4 +226,30 @@ else
             position: sticky;
         }
     </style>
+}
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Set minimum date/time for reservation to current time
+            var now = new Date();
+            var year = now.getFullYear();
+            var month = String(now.getMonth() + 1).padStart(2, '0');
+            var day = String(now.getDate()).padStart(2, '0');
+            var hours = String(now.getHours()).padStart(2, '0');
+            var minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            var minDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+            $('#ReservationDateTime').attr('min', minDateTime);
+
+            // Pre-fill user info if logged in
+            @if (User.Identity.IsAuthenticated)
+            {
+                <text>
+                $('#ContactName').val('@User.Identity.Name');
+                $('#Email').val('@User.FindFirst(ClaimTypes.Email)?.Value');
+                </text>
+            }
+        });
+    </script>
 }

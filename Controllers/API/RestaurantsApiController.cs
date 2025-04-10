@@ -74,8 +74,8 @@ namespace Project3.Controllers.API
 
             _logger.LogInformation("API: Attempting to update profile for Restaurant {RestaurantId} by Rep {RepUserId}", id, authenticatedUserId);
 
-            // *** IMPORTANT: Implement proper authorization check ***
-            bool isAuthorized = (authenticatedUserId == id); // Placeholder - Needs proper check!
+            // Implement proper authorization check
+            bool isAuthorized = User.IsInRole("restaurantRep") && authenticatedUserId == id;
             if (!isAuthorized)
             {
                 _logger.LogWarning("API: Rep {RepUserId} forbidden to update profile for Restaurant {RestaurantId}.", authenticatedUserId, id);
@@ -89,27 +89,26 @@ namespace Project3.Controllers.API
 
             try
             {
-                // TODO: Verify TP_spUpdateRestaurantProfile stored procedure exists and parameters match
+                // Ensure stored procedure exists and parameters match
                 SqlCommand cmd = new SqlCommand("dbo.TP_spUpdateRestaurantProfile");
                 cmd.CommandType = CommandType.StoredProcedure;
 
-                // *** Add parameters based on Updated DTO and User's Restaurant Model ***
+                // Add parameters based on Updated DTO and User's Restaurant Model
                 cmd.Parameters.AddWithValue("@RestaurantID", id); // Use ID from route
                 cmd.Parameters.AddWithValue("@Name", profileDto.Name);
                 cmd.Parameters.AddWithValue("@Address", (object)profileDto.Address ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@City", (object)profileDto.City ?? DBNull.Value); // Added
-                cmd.Parameters.AddWithValue("@State", (object)profileDto.State ?? DBNull.Value); // Added
-                cmd.Parameters.AddWithValue("@ZipCode", (object)profileDto.ZipCode ?? DBNull.Value); // Added
-                cmd.Parameters.AddWithValue("@Cuisine", (object)profileDto.Cuisine ?? DBNull.Value); // Added
-                cmd.Parameters.AddWithValue("@Hours", (object)profileDto.Hours ?? DBNull.Value); // Added
-                cmd.Parameters.AddWithValue("@Contact", (object)profileDto.Contact ?? DBNull.Value); // Added
-                cmd.Parameters.AddWithValue("@MarketingDescription", (object)profileDto.MarketingDescription ?? DBNull.Value); // Added
-                cmd.Parameters.AddWithValue("@WebsiteURL", (object)profileDto.WebsiteURL ?? DBNull.Value); // Kept
-                cmd.Parameters.AddWithValue("@SocialMedia", (object)profileDto.SocialMedia ?? DBNull.Value); // Added
-                cmd.Parameters.AddWithValue("@Owner", (object)profileDto.Owner ?? DBNull.Value); // Added
-                cmd.Parameters.AddWithValue("@ProfilePhoto", (object)profileDto.ProfilePhoto ?? DBNull.Value); // Kept
-                cmd.Parameters.AddWithValue("@LogoPhoto", (object)profileDto.LogoPhoto ?? DBNull.Value); // Kept
-                // Removed parameters: @Type, @Description, @Phone (replaced by @Cuisine, @MarketingDescription, @Contact)
+                cmd.Parameters.AddWithValue("@City", (object)profileDto.City ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@State", (object)profileDto.State ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@ZipCode", (object)profileDto.ZipCode ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Cuisine", (object)profileDto.Cuisine ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Hours", (object)profileDto.Hours ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Contact", (object)profileDto.Contact ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@MarketingDescription", (object)profileDto.MarketingDescription ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@WebsiteURL", (object)profileDto.WebsiteURL ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@SocialMedia", (object)profileDto.SocialMedia ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Owner", (object)profileDto.Owner ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@ProfilePhoto", (object)profileDto.ProfilePhoto ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@LogoPhoto", (object)profileDto.LogoPhoto ?? DBNull.Value);
 
                 int result = _dbConnect.DoUpdateUsingCmdObj(cmd);
 

@@ -100,58 +100,28 @@
 @* Main Dashboard Cards - Using Bootstrap Row/Columns *@
 <div class="row">
     @* Column 1: Restaurant Profile Card *@
-    <div class="col-md-4">
+    <div class="col-md-6">
         <div class="dashboard-card">
-            <h5 class="card-title"><i class="fas fa-store"></i> Your Restaurant Profile</h5> @* Font Awesome store icon *@
+            <h5 class="card-title"><i class="fas fa-store"></i> Restaurant Profile</h5> @* Font Awesome store icon *@
             @if (Model.HasProfile)
             {
-                <p class="card-text">Manage details for <strong>@Model.RestaurantName</strong>.</p>
-                @* Button could link to ManageProfile action or specific edit page *@
-                <a asp-action="ManageProfile" class="btn btn-outline-primary">Edit Profile</a>
+                <p class="card-text">Manage your restaurant profile and details.</p>
+                <a asp-action="ManageProfile" class="btn btn-primary">Manage Profile</a>
             }
             else
             {
-                <p class="card-text">Your restaurant profile has not been created yet.</p>
-                @* Button links to CreateProfile action in this controller *@
-                <a asp-action="CreateProfile" class="btn btn-primary">Create Profile</a>
+                <p class="card-text">Create your restaurant profile to get started.</p>
+                <a asp-action="ManageProfile" class="btn btn-primary">Create Profile</a>
             }
         </div>
     </div>
 
-    @* Column 2: Pending Reservations Card *@
-    <div class="col-md-4">
+    @* Column 2: Manage Reservations Card *@
+    <div class="col-md-6">
         <div class="dashboard-card">
-            <h5 class="card-title card-title-reservations"><i class="fas fa-calendar-check"></i> Pending Reservations</h5> @* Font Awesome calendar icon *@
-            @if (Model.HasProfile)
-            {
-                <p class="card-text">You have <strong>@Model.PendingReservationCount</strong> pending reservation(s).</p>
-                @* Button could link to ManageReservations action or specific reservations page *@
-                <a asp-action="ManageReservations" class="btn btn-outline-purple">View Reservations</a> @* Custom class or use btn-outline-secondary etc. *@
-            }
-            else
-            {
-                <p class="card-text">Create your restaurant profile to manage reservations.</p>
-                @* Optionally disable or hide button *@
-                <button class="btn btn-outline-secondary" disabled>View Reservations</button>
-            }
-        </div>
-    </div>
-
-    @* Column 3: Manage Links Card *@
-    <div class="col-md-4">
-        <div class="dashboard-card">
-            <h5 class="card-title card-title-manage"><i class="fas fa-pencil-alt"></i> Manage Profile & Photos</h5> @* Font Awesome pencil icon *@
-            @if (Model.HasProfile)
-            {
-                <p class="card-text">Update your restaurant details, hours, and upload photos.</p>
-                @* Button links to ManageProfile action *@
-                <a asp-action="ManageProfile" class="btn btn-warning">Manage Profile & Photos</a> @* Yellow/Orange button *@
-            }
-            else
-            {
-                <p class="card-text">Create your profile first to manage details and photos.</p>
-                <button class="btn btn-warning" disabled>Manage Profile & Photos</button>
-            }
+            <h5 class="card-title"><i class="fas fa-calendar-alt"></i> Manage Reservations</h5> @* Font Awesome calendar icon *@
+            <p class="card-text">View and manage your restaurant reservations.</p>
+            <a asp-action="ManageReservations" class="btn btn-primary">Manage Reservations</a>
         </div>
     </div>
 </div>

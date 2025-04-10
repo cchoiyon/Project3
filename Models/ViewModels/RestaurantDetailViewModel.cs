@@ -61,6 +61,8 @@ namespace Project3.Models.ViewModels
             set { _averagePriceLevelDisplay = value; }
         }
 
+        public int AverageRating { get; set; }
+
         // Parameterless constructor
         public RestaurantDetailViewModel()
         {

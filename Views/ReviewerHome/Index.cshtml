@@ -66,7 +66,7 @@
 @* Main Dashboard Cards - Using Bootstrap Row/Columns *@
 <div class="row">
     @* Column 1: My Reviews Card *@
-    <div class="col-md-4">
+    <div class="col-md-6">
         <div class="dashboard-card">
             <h5 class="card-title card-title-reviews"><i class="fas fa-star"></i> My Reviews</h5> @* Font Awesome star icon *@
             <p class="card-text">You have written <strong>@Model.TotalReviewsCount</strong> review(s).</p>
@@ -76,22 +76,12 @@
     </div>
 
     @* Column 2: Write Review Card *@
-    <div class="col-md-4">
+    <div class="col-md-6">
         <div class="dashboard-card">
              <h5 class="card-title card-title-search"><i class="fas fa-search"></i> Write a Review</h5> @* Font Awesome search icon *@
              <p class="card-text">Find restaurants and share your experience.</p>
              @* Button links to Search action in RestaurantController *@
              <a asp-controller="Restaurant" asp-action="Search" class="btn btn-success">Search Restaurants</a> @* Green button *@
-        </div>
-    </div>
-
-    @* Column 3: My Profile Card *@
-    <div class="col-md-4">
-        <div class="dashboard-card">
-            <h5 class="card-title card-title-profile"><i class="fas fa-user-edit"></i> My Profile</h5> @* Font Awesome user-edit icon *@
-             <p class="card-text">Manage your account settings and security information.</p>
-             @* Button links to Profile action in AccountController (assuming it exists) *@
-             <a asp-controller="Account" asp-action="Profile" class="btn btn-secondary">Account Settings</a> @* Grey button - adjust action if needed *@
         </div>
     </div>
 </div>

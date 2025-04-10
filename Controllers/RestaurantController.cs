@@ -16,6 +16,9 @@ using Project3.Utilities;
 using System.Data;
 using System.Data.SqlClient;
 using Microsoft.Extensions.Caching.Memory; // Add for caching
+using System.IO;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 
 namespace Project3.Controllers
 {
@@ -40,8 +43,8 @@ namespace Project3.Controllers
         }
 
         // GET: /Restaurant/Details/5
-        // Fetches profile, reviews, and photos from APIs to display details.
-        public async Task<IActionResult> Details(int id) // id is RestaurantID
+        // Fetches profile, reviews, and photos from database to display details.
+        public IActionResult Details(int id) // id is RestaurantID
         {
             if (id <= 0)
             {
@@ -49,73 +52,111 @@ namespace Project3.Controllers
                 return NotFound(); // Return 404 for invalid ID
             }
 
-            // Use the ViewModel designed for this page
-            var viewModel = new RestaurantDetailViewModel { RestaurantID = id };
-
             try
             {
-                var client = _httpClientFactory.CreateClient("Project3Api"); // Use named client
+                // Get restaurant details using stored procedure
+                var cmd = new SqlCommand("dbo.TP_spGetRestaurantDetails");
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.Parameters.AddWithValue("@RestaurantID", id);
+                var ds = _dbConnect.GetDataSetUsingCmdObj(cmd);
 
-                // --- API Call 1: Get Restaurant Profile ---
-                // TODO: Verify/Update Restaurant API GET endpoint URL
-                string profileApiUrl = $"api/restaurants/{id}"; // Example URL
-                _logger.LogDebug("Calling API GET {ApiUrl}", profileApiUrl);
-                var profileTask = client.GetFromJsonAsync<Restaurant>(profileApiUrl);
-
-                // --- API Call 2: Get Restaurant Reviews ---
-                // TODO: Verify/Update Review API GET endpoint URL (filtered by restaurant)
-                string reviewsApiUrl = $"api/reviews/restaurant/{id}"; // Example URL
-                _logger.LogDebug("Calling API GET {ApiUrl}", reviewsApiUrl);
-                var reviewsTask = client.GetFromJsonAsync<List<ReviewViewModel>>(reviewsApiUrl); // Assuming API returns ReviewViewModel
-
-                // --- API Call 3: Get Restaurant Photos ---
-                // TODO: Verify/Update Photo API GET endpoint URL (filtered by restaurant)
-                // Assuming API endpoint is part of RestaurantsApi or a separate PhotosApi
-                string photosApiUrl = $"api/restaurants/{id}/photos"; // Example URL within RestaurantsApi
-                                                                      // string photosApiUrl = $"api/photos/restaurant/{id}"; // Example URL for separate PhotosApi
-                _logger.LogDebug("Calling API GET {ApiUrl}", photosApiUrl);
-                // *** FIXED: Deserialize into List<Photo> (domain model) ***
-                var photosTask = client.GetFromJsonAsync<List<Photo>>(photosApiUrl);
-
-                // Await all tasks concurrently
-                await Task.WhenAll(profileTask, reviewsTask, photosTask);
-
-                // Process results
-                viewModel.Profile = await profileTask;
-                // Use ?? new List... to handle potential null return from API gracefully
-                viewModel.Reviews = await reviewsTask ?? new List<ReviewViewModel>();
-                // *** FIXED: Assign to List<Photo> and handle null ***
-                viewModel.Photos = await photosTask ?? new List<Photo>();
-
-                if (viewModel.Profile == null)
+                if (ds?.Tables[0]?.Rows.Count == 0)
                 {
-                    _logger.LogWarning("Restaurant profile not found via API for ID {RestaurantId}", id);
-                    return NotFound(); // Restaurant doesn't exist
+                    _logger.LogWarning("Restaurant not found with ID: {RestaurantId}", id);
+                    return NotFound();
                 }
 
-                // Calculate display values using helper methods
-                // Consider moving these calculations into the ViewModel itself or a service
-                viewModel.AverageRatingDisplay = GetStars(CalculateAverageRating(viewModel.Reviews));
-                viewModel.AveragePriceLevelDisplay = GetPriceLevel(CalculateAveragePriceLevel(viewModel.Reviews));
+                var row = ds.Tables[0].Rows[0];
+                var restaurant = new Restaurant
+                {
+                    RestaurantID = Convert.ToInt32(row["RestaurantID"]),
+                    Name = row["Name"]?.ToString() ?? string.Empty,
+                    Address = row["Address"]?.ToString() ?? string.Empty,
+                    City = row["City"]?.ToString() ?? string.Empty,
+                    State = row["State"]?.ToString() ?? string.Empty,
+                    ZipCode = row["ZipCode"]?.ToString() ?? string.Empty,
+                    Cuisine = row["Cuisine"]?.ToString() ?? string.Empty,
+                    Hours = row["Hours"]?.ToString() ?? string.Empty,
+                    Contact = row["Contact"]?.ToString() ?? string.Empty,
+                    MarketingDescription = row["MarketingDescription"]?.ToString() ?? string.Empty,
+                    WebsiteURL = row["WebsiteURL"]?.ToString() ?? string.Empty,
+                    SocialMedia = row["SocialMedia"]?.ToString() ?? string.Empty,
+                    Owner = row["Owner"]?.ToString() ?? string.Empty,
+                    ProfilePhoto = row["ProfilePhoto"]?.ToString() ?? string.Empty,
+                    LogoPhoto = row["LogoPhoto"]?.ToString() ?? string.Empty
+                };
 
+                // Get reviews using stored procedure
+                var reviewCmd = new SqlCommand("dbo.TP_spGetRestaurantReviews");
+                reviewCmd.CommandType = CommandType.StoredProcedure;
+                reviewCmd.Parameters.AddWithValue("@RestaurantID", id);
+                var reviewDs = _dbConnect.GetDataSetUsingCmdObj(reviewCmd);
+                var reviews = new List<ReviewViewModel>();
+
+                if (reviewDs?.Tables[0]?.Rows != null)
+                {
+                    foreach (DataRow reviewRow in reviewDs.Tables[0].Rows)
+                    {
+                        reviews.Add(new ReviewViewModel
+                        {
+                            ReviewID = Convert.ToInt32(reviewRow["ReviewID"]),
+                            RestaurantID = Convert.ToInt32(reviewRow["RestaurantID"]),
+                            UserID = Convert.ToInt32(reviewRow["UserID"]),
+                            ReviewerUsername = reviewRow["ReviewerUsername"]?.ToString() ?? "Anonymous",
+                            VisitDate = Convert.ToDateTime(reviewRow["VisitDate"]),
+                            FoodQualityRating = Convert.ToInt32(reviewRow["FoodQualityRating"]),
+                            ServiceRating = Convert.ToInt32(reviewRow["ServiceRating"]),
+                            AtmosphereRating = Convert.ToInt32(reviewRow["AtmosphereRating"]),
+                            Comments = reviewRow["Comments"]?.ToString() ?? string.Empty
+                        });
+                    }
+                }
+
+                // Get photos using stored procedure
+                var photoCmd = new SqlCommand("dbo.TP_spGetRestaurantPhotos");
+                photoCmd.CommandType = CommandType.StoredProcedure;
+                photoCmd.Parameters.AddWithValue("@RestaurantID", id);
+                var photoDs = _dbConnect.GetDataSetUsingCmdObj(photoCmd);
+                var photos = new List<Photo>();
+
+                if (photoDs?.Tables[0]?.Rows != null)
+                {
+                    foreach (DataRow photoRow in photoDs.Tables[0].Rows)
+                    {
+                        photos.Add(new Photo
+                        {
+                            PhotoID = Convert.ToInt32(photoRow["PhotoID"]),
+                            RestaurantID = Convert.ToInt32(photoRow["RestaurantID"]),
+                            PhotoURL = photoRow["PhotoURL"]?.ToString() ?? string.Empty,
+                            Caption = photoRow["Caption"]?.ToString() ?? string.Empty
+                        });
+                    }
+                }
+
+                // Calculate average rating
+                double averageRating = reviews.Any() ? reviews.Average(r => ((double)r.FoodQualityRating + (double)r.ServiceRating + (double)r.AtmosphereRating) / 3.0) : 0;
+                string averageRatingDisplay = $"{averageRating:F1} / 5 stars";
+
+                // Create view model
+                var viewModel = new RestaurantDetailViewModel
+                {
+                    RestaurantID = id,
+                    Profile = restaurant,
+                    Reviews = reviews,
+                    Photos = photos,
+                    AverageRatingDisplay = averageRatingDisplay,
+                    AveragePriceLevelDisplay = "$$", // This could be calculated based on actual data if available
+                    AverageRating = (int)Math.Round(averageRating)
+                };
+
+                return View(viewModel);
             }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, "API call failed: Could not get details for Restaurant ID {RestaurantId}. Status Code if available: {StatusCode}", id, ex.StatusCode);
-                TempData["ErrorMessage"] = "Could not load restaurant details at this time. Please try again later.";
-                // Redirecting to home might be confusing, consider showing an error view or message on current page?
-                // For now, keeping redirect to Home
-                return RedirectToAction("Index", "Home");
-            }
-            catch (Exception ex) // Catch other potential errors (e.g., Task.WhenAll failures)
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Error loading details for Restaurant ID {RestaurantId}", id);
                 TempData["ErrorMessage"] = "An unexpected error occurred loading restaurant details.";
-                return RedirectToAction("Index", "Home");
+                return View(new RestaurantDetailViewModel { RestaurantID = id });
             }
-
-            // Pass the populated ViewModel to the View
-            return View(viewModel); // Views/Restaurant/Details.cshtml
         }
 
         // Add private method to get cuisines
@@ -205,18 +246,38 @@ namespace Project3.Controllers
                 {
                     foreach (DataRow row in ds.Tables[0].Rows)
                     {
+                        string cuisine = row["Cuisine"]?.ToString() ?? string.Empty;
+                        string imagePath = "/images/restaurant-placeholder.png";
+                        
+                        // Try to use cuisine-specific image if available
+                        if (!string.IsNullOrEmpty(cuisine))
+                        {
+                            string cuisineImagePath = $"/images/restaurants/{cuisine.ToLower().Replace(" ", "-")}-restaurant.jpg";
+                            // Check if the file exists
+                            if (System.IO.File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", cuisineImagePath.TrimStart('/'))))
+                            {
+                                imagePath = cuisineImagePath;
+                            }
+                        }
+                        
+                        // Use LogoPhoto if available, otherwise use cuisine-specific or default image
+                        if (!string.IsNullOrEmpty(row["LogoPhoto"]?.ToString()))
+                        {
+                            imagePath = row["LogoPhoto"].ToString();
+                        }
+                        
                         var restaurant = new RestaurantViewModel
                         {
                             RestaurantID = Convert.ToInt32(row["RestaurantID"]),
                             Name = row["Name"]?.ToString() ?? string.Empty,
-                            Cuisine = row["Cuisine"]?.ToString() ?? string.Empty,
+                            Cuisine = cuisine,
                             City = row["City"]?.ToString() ?? string.Empty,
                             State = row["State"]?.ToString() ?? string.Empty,
                             Address = row["Address"]?.ToString() ?? string.Empty,
-                            ProfilePhoto = row["LogoPhoto"]?.ToString() ?? string.Empty,
-                            AverageRating = row["OverallRating"] != DBNull.Value ? Convert.ToDouble(row["OverallRating"]) : 0,
+                            ProfilePhoto = imagePath,
+                            AverageRating = row["OverallRating"] != DBNull.Value ? (int)Math.Round(Convert.ToDouble(row["OverallRating"])) : 0,
                             ReviewCount = row["ReviewCount"] != DBNull.Value ? Convert.ToInt32(row["ReviewCount"]) : 0,
-                            AveragePriceLevel = row["AveragePriceRating"] != DBNull.Value ? Convert.ToDouble(row["AveragePriceRating"]) : 0
+                            AveragePriceLevel = row["AveragePriceRating"] != DBNull.Value ? (int)Math.Round(Convert.ToDouble(row["AveragePriceRating"])) : 0
                         };
                         searchResults.Add(restaurant);
                     }
@@ -316,5 +377,334 @@ namespace Project3.Controllers
             return new string('$', priceLevel);
         }
         // --- End Helper Methods ---
+
+        // Helper method to update restaurant images based on cuisine
+        private void UpdateRestaurantImages()
+        {
+            try
+            {
+                // Dictionary mapping cuisine keywords to image paths
+                var cuisineImageMap = new Dictionary<string, string>
+                {
+                    { "italian", "/images/restaurants/italian-restaurant.jpg" },
+                    { "mexican", "/images/restaurants/mexican-restaurant.jpg" },
+                    { "chinese", "/images/restaurants/chinese-restaurant.jpg" },
+                    { "japanese", "/images/restaurants/japanese-restaurant.jpg" },
+                    { "american", "/images/restaurants/american-restaurant.jpg" },
+                    { "indian", "/images/restaurants/indian-restaurant.jpg" },
+                    { "thai", "/images/restaurants/thai-restaurant.jpg" },
+                    { "mediterranean", "/images/restaurants/mediterranean-restaurant.jpg" }
+                };
+
+                // Default image for restaurants without a matching cuisine
+                string defaultImage = "/images/restaurant-placeholder.png";
+
+                // Get all restaurants
+                var cmd = new SqlCommand("SELECT RestaurantID, Cuisine FROM TP_Restaurants");
+                var ds = _dbConnect.GetDataSetUsingCmdObj(cmd);
+                
+                if (ds?.Tables[0]?.Rows != null)
+                {
+                    foreach (DataRow row in ds.Tables[0].Rows)
+                    {
+                        int restaurantId = Convert.ToInt32(row["RestaurantID"]);
+                        string cuisine = row["Cuisine"]?.ToString()?.ToLower() ?? string.Empty;
+                        
+                        // Find matching image path
+                        string imagePath = defaultImage;
+                        foreach (var kvp in cuisineImageMap)
+                        {
+                            if (cuisine.Contains(kvp.Key))
+                            {
+                                imagePath = kvp.Value;
+                                break;
+                            }
+                        }
+                        
+                        // Update the restaurant's LogoPhoto
+                        var updateCmd = new SqlCommand("UPDATE TP_Restaurants SET LogoPhoto = @LogoPhoto WHERE RestaurantID = @RestaurantID");
+                        updateCmd.Parameters.AddWithValue("@LogoPhoto", imagePath);
+                        updateCmd.Parameters.AddWithValue("@RestaurantID", restaurantId);
+                        _dbConnect.DoUpdateUsingCmdObj(updateCmd);
+                    }
+                }
+                
+                _logger.LogInformation("Restaurant images updated successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating restaurant images");
+            }
+        }
+
+        // Action to manually update restaurant images (for testing)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult UpdateImages()
+        {
+            UpdateRestaurantImages();
+            TempData["Message"] = "Restaurant images updated successfully";
+            return RedirectToAction(nameof(Search));
+        }
+
+        // GET: /Restaurant/ManageImages/5
+        [Authorize(Roles = "RestaurantRep")]
+        public IActionResult ManageImages(int id)
+        {
+            try
+            {
+                // Get the restaurant details
+                var cmd = new SqlCommand("SELECT * FROM TP_Restaurants WHERE RestaurantID = @RestaurantID");
+                cmd.Parameters.AddWithValue("@RestaurantID", id);
+                
+                var ds = _dbConnect.GetDataSetUsingCmdObj(cmd);
+                if (ds?.Tables[0]?.Rows.Count == 0)
+                {
+                    TempData["Error"] = "Restaurant not found.";
+                    return RedirectToAction("Index", "Home");
+                }
+                
+                var row = ds.Tables[0].Rows[0];
+                var restaurant = new RestaurantViewModel
+                {
+                    RestaurantID = Convert.ToInt32(row["RestaurantID"]),
+                    Name = row["Name"]?.ToString() ?? string.Empty,
+                    Cuisine = row["Cuisine"]?.ToString() ?? string.Empty,
+                    City = row["City"]?.ToString() ?? string.Empty,
+                    State = row["State"]?.ToString() ?? string.Empty,
+                    Address = row["Address"]?.ToString() ?? string.Empty,
+                    ProfilePhoto = row["ProfilePhoto"]?.ToString() ?? string.Empty,
+                    LogoPhoto = row["LogoPhoto"]?.ToString() ?? string.Empty
+                };
+                
+                return View(restaurant);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading restaurant images for ID {RestaurantId}", id);
+                TempData["Error"] = "An error occurred while loading restaurant images.";
+                return RedirectToAction("Index", "Home");
+            }
+        }
+        
+        // POST: /Restaurant/UploadProfilePhoto
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "RestaurantRep")]
+        public IActionResult UploadProfilePhoto(int restaurantId, IFormFile imageFile)
+        {
+            if (imageFile == null || imageFile.Length == 0)
+            {
+                TempData["Error"] = "Please select an image to upload.";
+                return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+            }
+            
+            try
+            {
+                // Validate file type
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
+                var fileExtension = Path.GetExtension(imageFile.FileName).ToLowerInvariant();
+                
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    TempData["Error"] = "Only JPG, JPEG, and PNG files are allowed.";
+                    return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+                }
+                
+                // Validate file size (max 2MB)
+                if (imageFile.Length > 2 * 1024 * 1024)
+                {
+                    TempData["Error"] = "File size must be less than 2MB.";
+                    return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+                }
+                
+                // Create directory if it doesn't exist
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "restaurants", restaurantId.ToString());
+                if (!Directory.Exists(uploadsFolder))
+                {
+                    Directory.CreateDirectory(uploadsFolder);
+                }
+                
+                // Generate unique filename
+                var uniqueFileName = $"profile{DateTime.Now.Ticks}{fileExtension}";
+                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+                
+                // Save the file
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    imageFile.CopyTo(stream);
+                }
+                
+                // Update database with relative path
+                var relativePath = $"/uploads/restaurants/{restaurantId}/{uniqueFileName}";
+                var updateCmd = new SqlCommand("UPDATE TP_Restaurants SET ProfilePhoto = @ProfilePhoto WHERE RestaurantID = @RestaurantID");
+                updateCmd.Parameters.AddWithValue("@ProfilePhoto", relativePath);
+                updateCmd.Parameters.AddWithValue("@RestaurantID", restaurantId);
+                _dbConnect.DoUpdateUsingCmdObj(updateCmd);
+                
+                TempData["Message"] = "Profile photo uploaded successfully.";
+                return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading profile photo for restaurant ID {RestaurantId}", restaurantId);
+                TempData["Error"] = "An error occurred while uploading the image.";
+                return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+            }
+        }
+        
+        // POST: /Restaurant/UploadLogoPhoto
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "RestaurantRep")]
+        public IActionResult UploadLogoPhoto(int restaurantId, IFormFile imageFile)
+        {
+            if (imageFile == null || imageFile.Length == 0)
+            {
+                TempData["Error"] = "Please select an image to upload.";
+                return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+            }
+            
+            try
+            {
+                // Validate file type
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
+                var fileExtension = Path.GetExtension(imageFile.FileName).ToLowerInvariant();
+                
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    TempData["Error"] = "Only JPG, JPEG, and PNG files are allowed.";
+                    return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+                }
+                
+                // Validate file size (max 2MB)
+                if (imageFile.Length > 2 * 1024 * 1024)
+                {
+                    TempData["Error"] = "File size must be less than 2MB.";
+                    return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+                }
+                
+                // Create directory if it doesn't exist
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "restaurants", restaurantId.ToString());
+                if (!Directory.Exists(uploadsFolder))
+                {
+                    Directory.CreateDirectory(uploadsFolder);
+                }
+                
+                // Generate unique filename
+                var uniqueFileName = $"logo{DateTime.Now.Ticks}{fileExtension}";
+                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+                
+                // Save the file
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    imageFile.CopyTo(stream);
+                }
+                
+                // Update database with relative path
+                var relativePath = $"/uploads/restaurants/{restaurantId}/{uniqueFileName}";
+                var updateCmd = new SqlCommand("UPDATE TP_Restaurants SET LogoPhoto = @LogoPhoto WHERE RestaurantID = @RestaurantID");
+                updateCmd.Parameters.AddWithValue("@LogoPhoto", relativePath);
+                updateCmd.Parameters.AddWithValue("@RestaurantID", restaurantId);
+                _dbConnect.DoUpdateUsingCmdObj(updateCmd);
+                
+                TempData["Message"] = "Logo photo uploaded successfully.";
+                return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading logo photo for restaurant ID {RestaurantId}", restaurantId);
+                TempData["Error"] = "An error occurred while uploading the image.";
+                return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+            }
+        }
+        
+        // POST: /Restaurant/DeleteProfilePhoto
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "RestaurantRep")]
+        public IActionResult DeleteProfilePhoto(int restaurantId)
+        {
+            try
+            {
+                // Get the current profile photo path
+                var cmd = new SqlCommand("SELECT ProfilePhoto FROM TP_Restaurants WHERE RestaurantID = @RestaurantID");
+                cmd.Parameters.AddWithValue("@RestaurantID", restaurantId);
+                
+                var ds = _dbConnect.GetDataSetUsingCmdObj(cmd);
+                if (ds?.Tables[0]?.Rows.Count > 0)
+                {
+                    var photoPath = ds.Tables[0].Rows[0]["ProfilePhoto"]?.ToString();
+                    
+                    // Delete the file if it exists
+                    if (!string.IsNullOrEmpty(photoPath))
+                    {
+                        var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", photoPath.TrimStart('/'));
+                        if (System.IO.File.Exists(fullPath))
+                        {
+                            System.IO.File.Delete(fullPath);
+                        }
+                    }
+                }
+                
+                // Update database to remove the photo path
+                var updateCmd = new SqlCommand("UPDATE TP_Restaurants SET ProfilePhoto = NULL WHERE RestaurantID = @RestaurantID");
+                updateCmd.Parameters.AddWithValue("@RestaurantID", restaurantId);
+                _dbConnect.DoUpdateUsingCmdObj(updateCmd);
+                
+                TempData["Message"] = "Profile photo deleted successfully.";
+                return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting profile photo for restaurant ID {RestaurantId}", restaurantId);
+                TempData["Error"] = "An error occurred while deleting the image.";
+                return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+            }
+        }
+        
+        // POST: /Restaurant/DeleteLogoPhoto
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "RestaurantRep")]
+        public IActionResult DeleteLogoPhoto(int restaurantId)
+        {
+            try
+            {
+                // Get the current logo photo path
+                var cmd = new SqlCommand("SELECT LogoPhoto FROM TP_Restaurants WHERE RestaurantID = @RestaurantID");
+                cmd.Parameters.AddWithValue("@RestaurantID", restaurantId);
+                
+                var ds = _dbConnect.GetDataSetUsingCmdObj(cmd);
+                if (ds?.Tables[0]?.Rows.Count > 0)
+                {
+                    var photoPath = ds.Tables[0].Rows[0]["LogoPhoto"]?.ToString();
+                    
+                    // Delete the file if it exists
+                    if (!string.IsNullOrEmpty(photoPath))
+                    {
+                        var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", photoPath.TrimStart('/'));
+                        if (System.IO.File.Exists(fullPath))
+                        {
+                            System.IO.File.Delete(fullPath);
+                        }
+                    }
+                }
+                
+                // Update database to remove the photo path
+                var updateCmd = new SqlCommand("UPDATE TP_Restaurants SET LogoPhoto = NULL WHERE RestaurantID = @RestaurantID");
+                updateCmd.Parameters.AddWithValue("@RestaurantID", restaurantId);
+                _dbConnect.DoUpdateUsingCmdObj(updateCmd);
+                
+                TempData["Message"] = "Logo photo deleted successfully.";
+                return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting logo photo for restaurant ID {RestaurantId}", restaurantId);
+                TempData["Error"] = "An error occurred while deleting the image.";
+                return RedirectToAction(nameof(ManageImages), new { id = restaurantId });
+            }
+        }
     }
 }

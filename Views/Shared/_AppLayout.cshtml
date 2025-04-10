@@ -21,6 +21,9 @@
 
     @* Allow specific pages to add custom head content *@
     @await RenderSectionAsync("Head", required: false)
+
+    @* Add Google Maps API script *@
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places"></script>
 </head>
 <body>
     <header>
