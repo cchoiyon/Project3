@@ -108,7 +108,11 @@
              <div class="card sticky-top" style="top: 20px;"> @* Make card sticky *@
                  <div class="card-body">
                      <h5 class="card-title">Restaurant Info</h5>
-                     @* TODO: Add Map integration (Learning Opportunity / 3rd Party API?) *@
+                     
+                     @* --- Map Section --- *@
+                     <div class="mb-3">
+                         <div id="restaurantMap" style="height: 250px; width: 100%;"></div>
+                     </div>
 
                      @* --- Address --- *@
                      <p class="mb-1">
@@ -147,6 +151,14 @@
                              Hours: @Model.Profile.Hours @* Consider formatting this better if possible *@
                          </p>
                      }
+
+                     @* --- Get Directions Button --- *@
+                     <div class="mt-3">
+                         <a href="https://www.google.com/maps/search/?api=1&query=@Uri.EscapeDataString($"{Model.Profile.Address}, {Model.Profile.City}, {Model.Profile.State} {Model.Profile.ZipCode}")" 
+                            target="_blank" class="btn btn-outline-primary btn-sm w-100">
+                             <i class="fas fa-directions me-2"></i>Get Directions
+                         </a>
+                     </div>
 
                      @* --- Social Media --- *@
                      @* TODO: Add Social Media Links if available *@
@@ -225,6 +237,10 @@ else
             position: -webkit-sticky;
             position: sticky;
         }
+        #restaurantMap {
+            border-radius: 4px;
+            overflow: hidden;
+        }
     </style>
 }
 
@@ -250,6 +266,46 @@ else
                 $('#Email').val('@User.FindFirst(ClaimTypes.Email)?.Value');
                 </text>
             }
+
+            // Initialize the map
+            initRestaurantMap();
         });
+
+        function initRestaurantMap() {
+            const map = new google.maps.Map(document.getElementById('restaurantMap'), {
+                zoom: 15,
+                center: { lat: 40.7128, lng: -74.0060 } // Default to NYC, will be updated
+            });
+
+            const geocoder = new google.maps.Geocoder();
+            const address = '@($"{Model.Profile.Address}, {Model.Profile.City}, {Model.Profile.State} {Model.Profile.ZipCode}")';
+
+            geocoder.geocode({ address: address }, (results, status) => {
+                if (status === 'OK' && results[0]) {
+                    const location = results[0].geometry.location;
+                    const marker = new google.maps.Marker({
+                        map: map,
+                        position: location,
+                        title: '@Model.Profile.Name'
+                    });
+
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: `
+                            <div>
+                                <h6>@Model.Profile.Name</h6>
+                                <p>@Model.Profile.Address<br>
+                                @Model.Profile.City, @Model.Profile.State @Model.Profile.ZipCode</p>
+                            </div>
+                        `
+                    });
+
+                    marker.addListener('click', () => {
+                        infoWindow.open(map, marker);
+                    });
+
+                    map.setCenter(location);
+                }
+            });
+        }
     </script>
 }
