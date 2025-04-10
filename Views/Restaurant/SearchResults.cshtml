@@ -39,7 +39,7 @@
                             @foreach (var restaurant in searchResults)
                             {
                                 <div class="col">
-                                    <div class="card h-100">
+                                    <div class="card h-100 restaurant-card" data-restaurant-id="@restaurant.RestaurantID">
                                         <div class="position-relative">
                                             @if (!string.IsNullOrEmpty(restaurant.ProfilePhoto))
                                             {
@@ -149,14 +149,17 @@
 
 @section Scripts {
     <script>
+        let map;
+        let markers = [];
+        let infoWindows = [];
+
         function initSearchResultsMap() {
-            const map = new google.maps.Map(document.getElementById('searchResultsMap'), {
+            map = new google.maps.Map(document.getElementById('searchResultsMap'), {
                 zoom: 12,
                 center: { lat: 40.7128, lng: -74.0060 } // Default to NYC, will be updated
             });
 
             const restaurants = @Html.Raw(Json.Serialize(searchResults));
-            const markers = [];
             const bounds = new google.maps.LatLngBounds();
 
             // Geocode each restaurant's address and add a marker
@@ -170,7 +173,8 @@
                         const marker = new google.maps.Marker({
                             map: map,
                             position: location,
-                            title: restaurant.name
+                            title: restaurant.name,
+                            restaurantId: restaurant.restaurantID
                         });
 
                         // Add info window
@@ -186,10 +190,15 @@
                         });
 
                         marker.addListener('click', () => {
+                            // Close all other info windows
+                            infoWindows.forEach(iw => iw.close());
                             infoWindow.open(map, marker);
+                            // Highlight the corresponding card
+                            highlightCard(restaurant.restaurantID);
                         });
 
                         markers.push(marker);
+                        infoWindows.push(infoWindow);
                         bounds.extend(location);
                     }
                 });
@@ -201,7 +210,59 @@
             }
         }
 
-        // Initialize map when the page loads
-        document.addEventListener('DOMContentLoaded', initSearchResultsMap);
+        function highlightCard(restaurantId) {
+            // Remove highlight from all cards
+            document.querySelectorAll('.restaurant-card').forEach(card => {
+                card.classList.remove('border-primary', 'shadow');
+            });
+            
+            // Add highlight to selected card
+            const selectedCard = document.querySelector(`.restaurant-card[data-restaurant-id="${restaurantId}"]`);
+            if (selectedCard) {
+                selectedCard.classList.add('border-primary', 'shadow');
+                selectedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        // Add click handlers to restaurant cards
+        document.addEventListener('DOMContentLoaded', () => {
+            initSearchResultsMap();
+
+            // Add click handlers to restaurant cards
+            document.querySelectorAll('.restaurant-card').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    // Don't trigger if clicking on the "View Details" button
+                    if (!e.target.closest('a')) {
+                        const restaurantId = parseInt(card.dataset.restaurantId);
+                        const marker = markers.find(m => m.restaurantId === restaurantId);
+                        if (marker) {
+                            // Close all info windows
+                            infoWindows.forEach(iw => iw.close());
+                            // Open info window for this marker
+                            const infoWindow = infoWindows[markers.indexOf(marker)];
+                            infoWindow.open(map, marker);
+                            // Center map on marker
+                            map.panTo(marker.getPosition());
+                            // Highlight the card
+                            highlightCard(restaurantId);
+                        }
+                    }
+                });
+            });
+        });
     </script>
+
+    <style>
+        .restaurant-card {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .restaurant-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .restaurant-card.border-primary {
+            border-width: 2px !important;
+        }
+    </style>
 } 
