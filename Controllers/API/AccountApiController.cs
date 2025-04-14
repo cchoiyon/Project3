@@ -7,7 +7,7 @@ using Microsoft.Extensions.Configuration; // Added using statement
 using Project3.Models.Configuration;
 // using Project3.Models.DTOs; // Create and use DTOs for API contracts
 using Project3.Models.InputModels; // Can use InputModels if they match API needs
-using Project3.Utilities; // For DBConnect and Email service
+using Project3.Utilities; // For Connection and Email service
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -25,7 +25,7 @@ namespace Project3.Controllers.API
     public class AccountApiController : ControllerBase
     {
         private readonly ILogger<AccountApiController> _logger;
-        private readonly DBConnect _dbConnect; // Injected via DI
+        private readonly Connection _dbConnect; // Injected via DI
         private readonly Email _emailService; // Injected via DI
         private readonly SmtpSettings _smtpSettings; // Injected via DI (IOptions<SmtpSettings>)
         private readonly IConfiguration _configuration; // Injected via DI
@@ -47,7 +47,7 @@ namespace Project3.Controllers.API
         // Updated Constructor to inject IConfiguration
         public AccountApiController(
             ILogger<AccountApiController> logger,
-            DBConnect dbConnect, // Receives instance from DI
+            Connection dbConnect, // Receives instance from DI
             Email emailService, // Receives instance from DI
             IOptions<SmtpSettings> smtpSettingsOptions, // Receives configuration from DI
             IConfiguration configuration) // Added IConfiguration parameter
@@ -78,7 +78,7 @@ namespace Project3.Controllers.API
                 cmd.Parameters.AddWithValue("@UserPassword", loginModel.Password);
                 // *** END FIX ***
 
-                // Attempt the database call using the corrected DBConnect method
+                // Attempt the database call using the corrected Connection method
                 ds = _dbConnect.GetDataSetUsingCmdObj(cmd);
 
                 // Check if user was found
@@ -119,7 +119,7 @@ namespace Project3.Controllers.API
                     return Unauthorized(new ErrorResponseDto("Invalid username or password.")); // 401 User not found
                 }
             }
-            catch (SqlException sqlEx) // Catch specific SQL errors from DBConnect methods
+            catch (SqlException sqlEx) // Catch specific SQL errors from Connection methods
             {
                 _logger.LogError(sqlEx, "API: SQL Error during login for {Username}. Error Number: {ErrorNumber}. Message: {ErrorMessage}",
                     loginModel.Username, sqlEx.Number, sqlEx.Message);
@@ -162,7 +162,7 @@ namespace Project3.Controllers.API
                 cmd.Parameters.AddWithValue("@VerificationToken", verificationCode);
                 cmd.Parameters.AddWithValue("@VerificationTokenExpiry", expiryTime);
 
-                object result = await _dbConnect.ExecuteScalarUsingCmdObjAsync(cmd);
+                object result = _dbConnect.ExecuteScalarFunction(cmd);
 
                 int registeredUserId = (result != null && result != DBNull.Value) ? Convert.ToInt32(result) : 0;
 

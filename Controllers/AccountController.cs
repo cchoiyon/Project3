@@ -34,7 +34,7 @@ namespace Project3.Controllers
         private readonly ILogger<AccountController> _logger;
         private readonly IUserService _userService;
         private readonly IConfiguration _configuration;
-        private readonly DBConnect _dbConnect;
+        private readonly Connection _dbConnect;
         private readonly Email _emailService;
         private readonly string _connectionString;
 
@@ -44,13 +44,13 @@ namespace Project3.Controllers
         /// <param name="logger">Logger instance for logging information and errors.</param>
         /// <param name="userService">Service for user-related operations.</param>
         /// <param name="configuration">Configuration service for accessing app settings.</param>
-        /// <param name="dbConnect">DBConnect for database operations.</param>
+        /// <param name="dbConnect">Connection for database operations.</param>
         /// <param name="emailService">Email service for sending emails.</param>
         public AccountController(
             ILogger<AccountController> logger,
             IUserService userService,
             IConfiguration configuration,
-            DBConnect dbConnect,
+            Connection dbConnect,
             Email emailService)
         {
             _logger = logger;

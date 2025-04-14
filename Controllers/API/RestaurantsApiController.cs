@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Project3.Models.Domain; // Using user's Restaurant model structure
 using Project3.Models.DTOs;    // Using updated DTO
-using Project3.Utilities;    // For DBConnect
+using Project3.Utilities;    // For Connection
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -20,9 +20,9 @@ namespace Project3.Controllers.API
     public class RestaurantsApiController : ControllerBase
     {
         private readonly ILogger<RestaurantsApiController> _logger;
-        private readonly DBConnect _dbConnect;
+        private readonly Connection _dbConnect;
 
-        public RestaurantsApiController(ILogger<RestaurantsApiController> logger, DBConnect dbConnect)
+        public RestaurantsApiController(ILogger<RestaurantsApiController> logger, Connection dbConnect)
         {
             _logger = logger;
             _dbConnect = dbConnect;

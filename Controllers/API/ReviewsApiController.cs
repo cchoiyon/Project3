@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Project3.Models.Domain; // Assuming domain models are here
 using Project3.Models.ViewModels; // Assuming ViewModels are used as return types
 // using Project3.Models.DTOs; // Add using for your DTOs
-using Project3.Utilities; // For DBConnect
+using Project3.Utilities; // For Connection
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -21,9 +21,9 @@ namespace Project3.Controllers.API // Or just Project3.Controllers
     public class ReviewsApiController : ControllerBase
     {
         private readonly ILogger<ReviewsApiController> _logger;
-        private readonly DBConnect _dbConnect; // Inject DBConnect (consider repository pattern later)
+        private readonly Connection _dbConnect; // Inject Connection (consider repository pattern later)
 
-        public ReviewsApiController(ILogger<ReviewsApiController> logger, DBConnect dbConnect)
+        public ReviewsApiController(ILogger<ReviewsApiController> logger, Connection dbConnect)
         {
             _logger = logger;
             _dbConnect = dbConnect;
@@ -64,8 +64,7 @@ namespace Project3.Controllers.API // Or just Project3.Controllers
                 cmd.Parameters.AddWithValue("@PriceRating", reviewDto.PriceRating);
 
                 // *** TODO: Execute SP using _dbConnect ***
-                // Modify SP to return SCOPE_IDENTITY() or use ExecuteScalar if it does
-                // int newReviewId = Convert.ToInt32(_dbConnect.ExecuteScalarUsingCmdObj(cmd)); // Example if SP returns ID
+                // int newReviewId = Convert.ToInt32(_dbConnect.ExecuteScalarFunction(cmd)); // Example if SP returns ID
                 int result = 1; // Placeholder for DoUpdate result
                 int newReviewId = new Random().Next(); // Placeholder ID
                 await Task.Delay(10); // Simulate async work

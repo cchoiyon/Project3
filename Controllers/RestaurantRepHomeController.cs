@@ -1,14 +1,14 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization; // Ensure controller requires login
 using Project3.Models.ViewModels; // Needed for the ViewModel
-using Project3.Utilities; // Assuming DBConnect is here
+using Project3.Utilities; // Assuming Connection is here
 using System.Security.Claims; // Needed to get logged-in user ID
 using System.Threading.Tasks; // *** ADDED for async Task ***
 using System.Data;
 // NOTE: Use EITHER System.Data.SqlClient OR Microsoft.Data.SqlClient, not both usually.
-// Choose based on which package your DBConnect class uses.
-using System.Data.SqlClient; // Assuming DBConnect uses this older version
-// using Microsoft.Data.SqlClient; // Use this if DBConnect uses the newer package
+// Choose based on which package your Connection class uses.
+using System.Data.SqlClient; // Assuming Connection uses this older version
+// using Microsoft.Data.SqlClient; // Use this if Connection uses the newer package
 using System;
 using System.Collections.Generic; // For List<>
 using Project3.Models.DTOs; // For ReviewDto etc.
@@ -22,11 +22,11 @@ namespace Project3.Controllers
     [Authorize(Roles = "RestaurantRep")] // Restrict access to users with the RestaurantRep role
     public class RestaurantRepHomeController : Controller
     {
-        private readonly DBConnect _db; // Example: Using DBConnect
+        private readonly Connection _db; // Example: Using Connection
         private readonly ILogger<RestaurantRepHomeController> _logger;
 
         // Constructor for dependency injection
-        public RestaurantRepHomeController(DBConnect db, ILogger<RestaurantRepHomeController> logger)
+        public RestaurantRepHomeController(Connection db, ILogger<RestaurantRepHomeController> logger)
         {
             _db = db;
             _logger = logger;
@@ -89,9 +89,8 @@ namespace Project3.Controllers
                     cmdReservations.CommandText = "TP_GetPendingReservationCount"; // Example SP name
                     cmdReservations.Parameters.AddWithValue("@RestaurantId", viewModel.RestaurantId);
 
-                    // FIX: Changed to call the ASYNC method with await
-                    // Using the correct method name from your DBConnect class
-                    object reservationResult = await _db.ExecuteScalarUsingCmdObjAsync(cmdReservations); // <-- Corrected Call
+                    // Using the existing synchronous ExecuteScalarFunction method
+                    object reservationResult = _db.ExecuteScalarFunction(cmdReservations);
 
                     if (reservationResult != null && reservationResult != DBNull.Value)
                     {

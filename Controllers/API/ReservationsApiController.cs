@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Project3.Models.Domain; // Assuming Reservation model is here
 using Project3.Models.DTOs;    // Ensure you are using the DTOs from the correct namespace
-using Project3.Utilities;    // For DBConnect
+using Project3.Utilities;    // For Connection
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -20,10 +20,10 @@ namespace Project3.Controllers.API
     public class ReservationsApiController : ControllerBase
     {
         private readonly ILogger<ReservationsApiController> _logger;
-        private readonly DBConnect _dbConnect; // Injected via DI
+        private readonly Connection _dbConnect; // Injected via DI
 
         // Constructor
-        public ReservationsApiController(ILogger<ReservationsApiController> logger, DBConnect dbConnect)
+        public ReservationsApiController(ILogger<ReservationsApiController> logger, Connection dbConnect)
         {
             _logger = logger;
             _dbConnect = dbConnect;
@@ -59,27 +59,27 @@ namespace Project3.Controllers.API
                 cmd.Parameters.AddWithValue("@SpecialRequests", string.IsNullOrEmpty(reservationDto.SpecialRequests) ? DBNull.Value : reservationDto.SpecialRequests);
                 cmd.Parameters.AddWithValue("@Status", "Pending");
 
-                object result = await _dbConnect.ExecuteScalarUsingCmdObjAsync(cmd);
+                object result = _dbConnect.ExecuteScalarFunction(cmd);
                 int newReservationId = (result != null && result != DBNull.Value) ? Convert.ToInt32(result) : 0;
 
                 if (newReservationId > 0)
                 {
                     _logger.LogInformation("API: Reservation {ReservationId} created for Restaurant {RestaurantId}", newReservationId, reservationDto.RestaurantID);
-                    Reservation createdReservation = await GetReservationByIdInternal(newReservationId);
-
-                    if (createdReservation == null)
+                    Reservation createdReservation = GetReservationByIdInternal(newReservationId);
+                    if (createdReservation != null)
                     {
-                        _logger.LogError("API: Could not retrieve newly created reservation with ID {ReservationId}", newReservationId);
-                        return StatusCode(StatusCodes.Status500InternalServerError, "Reservation created but could not be retrieved.");
+                        return CreatedAtAction(nameof(GetReservationById), new { id = newReservationId }, createdReservation);
                     }
-                    // TODO: Optionally send email notification
-                    return CreatedAtAction(nameof(GetReservationById), new { id = newReservationId }, createdReservation);
                 }
                 else
                 {
                     _logger.LogError("API: Failed to add reservation record to DB (ExecuteScalar returned 0 or null) for Restaurant {RestaurantId}", reservationDto.RestaurantID);
                     return StatusCode(StatusCodes.Status500InternalServerError, "Error saving reservation data.");
                 }
+
+                // Add return statement for the case when createdReservation is null
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error retrieving created reservation.");
+
             }
             catch (SqlException sqlEx)
             {
@@ -103,7 +103,7 @@ namespace Project3.Controllers.API
             // TODO: Add Authorization Check
             try
             {
-                Reservation reservation = await GetReservationByIdInternal(id);
+                Reservation reservation = GetReservationByIdInternal(id);
                 if (reservation == null) { return NotFound(); }
                 return Ok(reservation);
             }
@@ -257,7 +257,7 @@ namespace Project3.Controllers.API
 
         // ================== Helper Methods ==================
 
-        private async Task<Reservation?> GetReservationByIdInternal(int id)
+        private Reservation GetReservationByIdInternal(int id)
         {
             try
             {

@@ -24,7 +24,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 // Register my custom services
 builder.Services.AddTransient<Project3.Utilities.Email>();
-builder.Services.AddScoped<Project3.Utilities.DBConnect>(); // Scoped for DB stuff seems right
+builder.Services.AddScoped<Project3.Utilities.Connection>(); // Changed from DBConnect to Connection
 builder.Services.AddScoped<IUserService, UserService>();
 
 // Need this for making HTTP calls (IHttpClientFactory)
@@ -48,9 +48,9 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddMemoryCache();
 builder.Services.AddSession(options =>
 {
-    // options.IdleTimeout = TimeSpan.FromMinutes(30); // Can set timeout later if needed
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
     options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true; // Helps session work even with cookie consent popups
+    options.Cookie.IsEssential = true;
 });
 
 // Authentication - using Cookies
@@ -66,6 +66,26 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 // Authorization services (needed if using [Authorize])
 builder.Services.AddAuthorization();
+
+// Add CORS services
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSchoolServer", policy =>
+    {
+        // Temple University server domains
+        policy.WithOrigins(
+            "http://cis-mssql1.temple.edu",    // Temple's SQL server
+            "https://cis-mssql1.temple.edu",   // Temple's SQL server (HTTPS)
+            "http://localhost:5000",           // Local development
+            "http://localhost:5001",           // Local development with HTTPS
+            "http://127.0.0.1:5000",           // Local development (alternative)
+            "http://127.0.0.1:5001"            // Local development with HTTPS (alternative)
+        )
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials();
+    });
+});
 
 builder.Services.AddLogging();
 
@@ -91,6 +111,9 @@ else
 app.UseHttpsRedirection();
 app.UseStaticFiles(); // For wwwroot files (CSS, JS)
 app.UseRouting(); // Decides which endpoint to use
+
+// Use CORS middleware
+app.UseCors("AllowSchoolServer");
 
 // Session needs to be configured before Auth and endpoint mapping
 app.UseSession();

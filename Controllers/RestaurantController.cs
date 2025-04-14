@@ -26,14 +26,14 @@ namespace Project3.Controllers
     {
         private readonly ILogger<RestaurantController> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
-        private readonly DBConnect _dbConnect;
+        private readonly Connection _dbConnect;
         private readonly IMemoryCache _cache; // Add cache field
         private const string CuisinesCacheKey = "AllCuisines"; // Cache key for cuisines
 
         public RestaurantController(
             ILogger<RestaurantController> logger, 
             IHttpClientFactory httpClientFactory, 
-            DBConnect dbConnect,
+            Connection dbConnect,
             IMemoryCache cache) // Add cache to constructor
         {
             _logger = logger;
