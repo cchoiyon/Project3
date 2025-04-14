@@ -7,9 +7,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Builder;
 using System;
 using Microsoft.Extensions.Configuration;
-using Project3.Services;
-using Microsoft.EntityFrameworkCore;
-using Project3.Database;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,14 +15,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Load email settings from appsettings.json
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 
-// Configure DbContext
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
 // Register my custom services
 builder.Services.AddTransient<Project3.Utilities.Email>();
 builder.Services.AddScoped<Project3.Utilities.Connection>(); // Changed from DBConnect to Connection
-builder.Services.AddScoped<IUserService, UserService>();
 
 // Need this for making HTTP calls (IHttpClientFactory)
 builder.Services.AddHttpClient();

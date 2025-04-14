@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using System.Security.Claims;
 using Project3.Models.ViewModels;
 using Project3.Models.InputModels;
-using Project3.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
@@ -32,7 +31,6 @@ namespace Project3.Controllers
     {
         // Dependency injected services
         private readonly ILogger<AccountController> _logger;
-        private readonly IUserService _userService;
         private readonly IConfiguration _configuration;
         private readonly Connection _dbConnect;
         private readonly Email _emailService;
@@ -42,19 +40,16 @@ namespace Project3.Controllers
         /// Constructor to initialize the controller with required services.
         /// </summary>
         /// <param name="logger">Logger instance for logging information and errors.</param>
-        /// <param name="userService">Service for user-related operations.</param>
         /// <param name="configuration">Configuration service for accessing app settings.</param>
         /// <param name="dbConnect">Connection for database operations.</param>
         /// <param name="emailService">Email service for sending emails.</param>
         public AccountController(
             ILogger<AccountController> logger,
-            IUserService userService,
             IConfiguration configuration,
             Connection dbConnect,
             Email emailService)
         {
             _logger = logger;
-            _userService = userService;
             _configuration = configuration;
             _dbConnect = dbConnect;
             _emailService = emailService;
