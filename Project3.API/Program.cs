@@ -10,6 +10,13 @@ var builder = WebApplication.CreateBuilder(args);
 // Load email settings from appsettings.json if needed
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 
+// Register SmtpSettings as a concrete instance (not IOptions)
+builder.Services.AddSingleton(sp => {
+    var settings = new SmtpSettings();
+    builder.Configuration.GetSection("SmtpSettings").Bind(settings);
+    return settings;
+});
+
 // Register custom services from Shared project
 builder.Services.AddTransient<Project3.Shared.Utilities.Email>();
 builder.Services.AddScoped<Project3.Shared.Utilities.Connection>(); 
