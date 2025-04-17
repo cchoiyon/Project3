@@ -109,6 +109,9 @@ namespace Project3.Controllers
                         
                         if (storedHash != null && BCrypt.Net.BCrypt.Verify(model.Password, storedHash))
                         {
+                            // TEMPORARILY BYPASSING EMAIL VERIFICATION CHECK FOR TESTING
+                            // Comment out the verification check block
+                            /*
                             // Check if account is verified
                             if (!isVerified)
                             {
@@ -128,6 +131,7 @@ namespace Project3.Controllers
                                 TempData["Message"] = "Your account is not verified. A new verification code has been sent to your email.";
                                 return RedirectToAction("VerifyEmail");
                             }
+                            */
                             
                             // Get the user type and ensure it matches the expected role names
                             string userType = row["UserType"]?.ToString();
@@ -336,20 +340,98 @@ namespace Project3.Controllers
                     {
                         _logger.LogInformation("User {Username} registered successfully", model.Username);
                         
+                        // TEMPORARILY BYPASS EMAIL VERIFICATION FOR TESTING
+                        // After creating the user, set the user as verified immediately
+                        SqlCommand updateCmd = new SqlCommand("UPDATE TP_Users SET IsVerified = 1 WHERE Username = @Username");
+                        updateCmd.Parameters.AddWithValue("@Username", model.Username);
+                        _dbConnect.DoUpdateUsingCmdObj(updateCmd);
+                        
+                        // Automatically sign in the user
+                        var userType = model.UserRole;
+                        string role;
+                        if (userType != null)
+                        {
+                            if (userType.ToLower() == "reviewer")
+                            {
+                                role = "Reviewer";
+                            }
+                            else if (userType.ToLower() == "restaurantrep")
+                            {
+                                role = "RestaurantRep";
+                            }
+                            else
+                            {
+                                role = userType;
+                            }
+                        }
+                        else
+                        {
+                            role = "User";
+                        }
+                        
+                        // Get the user ID
+                        SqlCommand getUserIdCmd = new SqlCommand("SELECT UserID FROM TP_Users WHERE Username = @Username");
+                        getUserIdCmd.Parameters.AddWithValue("@Username", model.Username);
+                        var userId = _dbConnect.ExecuteScalarUsingCmdObj(getUserIdCmd);
+                        
+                        // Create claims
+                        var claims = new List<Claim>
+                        {
+                            new Claim(ClaimTypes.Name, model.Username),
+                            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+                            new Claim(ClaimTypes.Role, role)
+                        };
+                        
+                        var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+                        var authProperties = new AuthenticationProperties
+                        {
+                            IsPersistent = true
+                        };
+                        
+                        await HttpContext.SignInAsync(
+                            CookieAuthenticationDefaults.AuthenticationScheme,
+                            new ClaimsPrincipal(claimsIdentity),
+                            authProperties);
+                        
+                        return RedirectToDashboard();
+                        
+                        /* COMMENTING OUT EMAIL VERIFICATION FLOW FOR TESTING
                         // After creating the user, update the verification code in the database
                         SqlCommand updateCmd = new SqlCommand("UPDATE TP_Users SET VerificationCode = @VerificationCode, IsVerified = 0 WHERE Username = @Username");
                         updateCmd.Parameters.AddWithValue("@VerificationCode", verificationCode);
                         updateCmd.Parameters.AddWithValue("@Username", model.Username);
                         _dbConnect.DoUpdateUsingCmdObj(updateCmd);
                         
-                        // Send verification email
-                        await SendVerificationEmail(model.Email, model.Username, verificationCode);
+                        // Try to send verification email
+                        bool emailSent = true;
+                        try 
+                        {
+                            await SendVerificationEmail(model.Email, model.Username, verificationCode);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to send verification email to {Email}", model.Email);
+                            emailSent = false;
+                            
+                            // For debugging in development, let's show the verification code in TempData
+                            if (_configuration["Environment"]?.ToLower() == "development" || 
+                                _configuration.GetValue<bool>("IsDevelopment"))
+                            {
+                                TempData["DevelopmentVerificationCode"] = verificationCode;
+                            }
+                        }
                         
                         // Store email in TempData for the verification page
                         TempData["Email"] = model.Email;
                         
+                        if (!emailSent)
+                        {
+                            TempData["EmailSendingError"] = "We couldn't send the verification email. Please check your network connection and try again later.";
+                        }
+                        
                         // Redirect to verification page
                         return RedirectToAction("VerifyEmail");
+                        */
                     }
                     else
                     {
@@ -385,6 +467,20 @@ namespace Project3.Controllers
             {
                 Email = TempData["Email"].ToString()
             };
+            
+            // For development purposes, show the verification code if available
+            if (TempData["DevelopmentVerificationCode"] != null)
+            {
+                TempData["Message"] = $"DEVELOPMENT MODE: Verification code is {TempData["DevelopmentVerificationCode"]}";
+                TempData.Keep("DevelopmentVerificationCode");
+            }
+            
+            // Display any email sending errors
+            if (TempData["EmailSendingError"] != null)
+            {
+                TempData["ErrorMessage"] = TempData["EmailSendingError"];
+                TempData.Remove("EmailSendingError");
+            }
             
             return View(model);
         }

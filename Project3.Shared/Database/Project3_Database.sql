@@ -380,16 +380,28 @@ GO
 
 -- Delete Review SP
 CREATE PROCEDURE dbo.TP_spDeleteReview
-@ReviewID INT
+@ReviewID INT,
+@UserID INT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
-        DELETE FROM dbo.TP_Reviews
-        WHERE ReviewID = @ReviewID;
+        -- Check if UserID parameter was provided and use it to verify ownership
+        IF @UserID IS NOT NULL
+        BEGIN
+            DELETE FROM dbo.TP_Reviews
+            WHERE ReviewID = @ReviewID AND UserID = @UserID;
+        END
+        ELSE
+        BEGIN
+            -- If no UserID provided, just delete by ReviewID
+            DELETE FROM dbo.TP_Reviews
+            WHERE ReviewID = @ReviewID;
+        END
+        
         IF @@ROWCOUNT = 0
         BEGIN
-            PRINT 'Warning: ReviewID not found for deletion.';
+            PRINT 'Warning: ReviewID not found for deletion or user does not own this review.';
             RETURN 0;
         END
         RETURN @@ROWCOUNT;
@@ -434,6 +446,80 @@ BEGIN
     ORDER BY
         ReviewCount DESC,
         r.CreatedDate DESC;
+END;
+GO
+
+-- Update Review SP
+CREATE PROCEDURE dbo.TP_spUpdateReview
+@ReviewID INT,
+@UserID INT,
+@VisitDate DATETIME2(7),
+@Comments NVARCHAR(MAX),
+@FoodQualityRating INT,
+@ServiceRating INT,
+@AtmosphereRating INT,
+@PriceRating INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Use a transaction to ensure atomicity
+    BEGIN TRANSACTION;
+    
+    BEGIN TRY
+        -- Print values for debugging
+        PRINT 'DEBUG - Received ratings: Food=' + CAST(@FoodQualityRating AS VARCHAR) + 
+              ', Service=' + CAST(@ServiceRating AS VARCHAR) + 
+              ', Atmosphere=' + CAST(@AtmosphereRating AS VARCHAR) + 
+              ', Price=' + CAST(@PriceRating AS VARCHAR);
+    
+        -- Validate ratings first
+        IF @FoodQualityRating < 1 OR @FoodQualityRating > 5 OR
+           @ServiceRating < 1 OR @ServiceRating > 5 OR
+           @AtmosphereRating < 1 OR @AtmosphereRating > 5 OR
+           @PriceRating < 1 OR @PriceRating > 5
+        BEGIN
+            ROLLBACK TRANSACTION;
+            RAISERROR('Error: Ratings must be between 1 and 5.', 16, 1);
+            RETURN -1;
+        END
+    
+        -- Check if the review exists and belongs to the user
+        IF NOT EXISTS (SELECT 1 FROM dbo.TP_Reviews WHERE ReviewID = @ReviewID AND UserID = @UserID)
+        BEGIN
+            ROLLBACK TRANSACTION;
+            RAISERROR('Warning: ReviewID not found or user does not own this review.', 16, 1);
+            RETURN 0;
+        END
+        
+        -- Perform the update with TABLOCKX hint for immediate processing
+        UPDATE dbo.TP_Reviews WITH (TABLOCKX)
+        SET VisitDate = @VisitDate,
+            Comments = @Comments,
+            FoodQualityRating = @FoodQualityRating,
+            ServiceRating = @ServiceRating,
+            AtmosphereRating = @AtmosphereRating,
+            PriceRating = @PriceRating
+        WHERE ReviewID = @ReviewID AND UserID = @UserID;
+        
+        -- Commit the transaction
+        COMMIT TRANSACTION;
+        RETURN 1;
+    END TRY
+    BEGIN CATCH
+        -- Roll back the transaction on error
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+            
+        -- Log the error
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
+        
+        PRINT 'ERROR: ' + @ErrorMessage;
+        RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);
+        RETURN -1;
+    END CATCH
 END;
 GO
 

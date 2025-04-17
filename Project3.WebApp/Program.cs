@@ -35,6 +35,8 @@ builder.Services.AddHttpClient("Project3Api", client =>
     // Make sure this base address matches where the API is running locally! Ends with '/'
     client.BaseAddress = new Uri("https://localhost:7256/");
     client.DefaultRequestHeaders.Add("Accept", "application/json");
+    // Add timeout to prevent hanging on API calls
+    client.Timeout = TimeSpan.FromSeconds(10);
 });
 
 // Adds services for MVC Controllers and Views

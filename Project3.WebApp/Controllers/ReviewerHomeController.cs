@@ -2,12 +2,18 @@
 using Microsoft.AspNetCore.Authorization; // Needed for [Authorize]
 // Add any other necessary using statements for your ViewModels or services
 using Project3.Shared.Models.ViewModels; // For ReviewerHomeViewModel
+using Project3.Shared.Models.InputModels; // For ReviewViewModel
+using Project3.Shared.Utilities; // For Connection class
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Claims; // Needed for getting user ID potentially
+using System.Data.SqlClient;
+using System.Data;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 // using System.Linq; // If using LINQ for data retrieval
 
 namespace Project3.Controllers
@@ -16,14 +22,17 @@ namespace Project3.Controllers
     [Authorize(Roles = "Reviewer")] // Updated to use the correct role name
     public class ReviewerHomeController : Controller
     {
+        private readonly IConfiguration _configuration;
+        private readonly Connection _dbConnect;
+        private readonly ILogger<ReviewerHomeController> _logger;
+
         // --- Constructor ---
-        // Add a constructor here if you need to inject services (like DB access, etc.)
-        // Example:
-        // private readonly YourDbContext _context;
-        // public ReviewerHomeController(YourDbContext context)
-        // {
-        //     _context = context;
-        // }
+        public ReviewerHomeController(IConfiguration configuration, Connection dbConnect, ILogger<ReviewerHomeController> logger)
+        {
+            _configuration = configuration;
+            _dbConnect = dbConnect;
+            _logger = logger;
+        }
 
         // --- Index Action ---
         // FIX: Create and pass a ViewModel to the View
@@ -54,16 +63,85 @@ namespace Project3.Controllers
         [HttpGet] // Explicitly marking as HttpGet (optional if no other verb is present, but clear)
         public IActionResult ManageReviews()
         {
-            // TODO: Add logic here to fetch the reviews written by the currently logged-in reviewer
-            // You might need to get the user's ID: User.FindFirstValue(ClaimTypes.NameIdentifier);
-            // Then query your database/API for reviews associated with that user ID.
-            // Example: var reviews = _context.Reviews.Where(r => r.UserId == userId).ToList();
-            // Example: var viewModel = new ManageReviewsViewModel { Reviews = reviews };
+            // Get the current user ID
+            var currentUserId = GetCurrentUserId();
+            if (currentUserId <= 0)
+            {
+                TempData["ErrorMessage"] = "You must be logged in to view your reviews.";
+                return RedirectToAction("Login", "Account");
+            }
 
-            // Return the corresponding View. Make sure you have a ManageReviews.cshtml view
-            // in the Views/ReviewerHome folder.
-            // If this view also needs a model, create and pass it like in the Index action.
-            return View(); // Or return View(manageReviewsViewModel);
+            try
+            {
+                _logger.LogInformation("Fetching reviews for user ID: {UserId}", currentUserId);
+                
+                // Query to get all reviews created by the current user with restaurant details
+                SqlCommand cmd = new SqlCommand(@"
+                    SELECT r.*, rst.Name AS RestaurantName
+                    FROM TP_Reviews r
+                    INNER JOIN TP_Restaurants rst ON r.RestaurantID = rst.RestaurantID
+                    WHERE r.UserID = @UserID
+                    ORDER BY r.CreatedDate DESC");
+                cmd.Parameters.AddWithValue("@UserID", currentUserId);
+
+                var ds = _dbConnect.GetDataSetUsingCmdObj(cmd);
+                
+                // Create list of reviews for the view
+                var reviews = new List<ReviewViewModel>();
+                
+                if (ds != null && ds.Tables.Count > 0 && ds.Tables[0].Rows.Count > 0)
+                {
+                    foreach (DataRow row in ds.Tables[0].Rows)
+                    {
+                        reviews.Add(new ReviewViewModel
+                        {
+                            ReviewID = Convert.ToInt32(row["ReviewID"]),
+                            RestaurantID = Convert.ToInt32(row["RestaurantID"]),
+                            RestaurantName = row["RestaurantName"].ToString(),
+                            UserID = currentUserId,
+                            VisitDate = Convert.ToDateTime(row["VisitDate"]),
+                            Comments = row["Comments"].ToString(),
+                            FoodQualityRating = Convert.ToInt32(row["FoodQualityRating"]),
+                            ServiceRating = Convert.ToInt32(row["ServiceRating"]),
+                            AtmosphereRating = Convert.ToInt32(row["AtmosphereRating"]),
+                            PriceRating = Convert.ToInt32(row["PriceRating"]),
+                            CreatedDate = Convert.ToDateTime(row["CreatedDate"]),
+                            ReviewerUsername = User.Identity.Name
+                        });
+                    }
+                    
+                    _logger.LogInformation("Found {Count} reviews for user ID {UserId}", reviews.Count, currentUserId);
+                }
+                else
+                {
+                    _logger.LogInformation("No reviews found for user ID {UserId}", currentUserId);
+                }
+
+                return View(reviews);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching reviews for user {UserId}", currentUserId);
+                TempData["ErrorMessage"] = "There was an error retrieving your reviews. Please try again.";
+                return View(new List<ReviewViewModel>());
+            }
+        }
+
+        // Helper method to get the current user's ID
+        private int GetCurrentUserId()
+        {
+            if (User?.Identity?.IsAuthenticated != true)
+            {
+                return 0;
+            }
+
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (int.TryParse(userIdClaim, out int userId))
+            {
+                return userId;
+            }
+
+            return 0;
         }
 
         // Add other actions needed for the Reviewer Home section here...

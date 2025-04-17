@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "jH1GZ7q845pC3V4qQnn0ACjBMCGNlqevFBgzcNHOKwU=",
+  "Hash": "xndHJ2AfnmjB69bU+d9/92wvWyTclozrKgs1tSyv3FQ=",
   "Source": "Project3.WebApp",
   "BasePath": "_content/Project3.WebApp",
   "Mode": "Default",
@@ -32,6 +32,23 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\css\\account-styles.css"
+    },
+    {
+      "Identity": "C:\\Users\\choiy\\OneDrive\\Desktop\\ServerSide\\TermProject\\Project3.WebApp\\wwwroot\\css\\review\\star-rating.css",
+      "SourceId": "Project3.WebApp",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\choiy\\OneDrive\\Desktop\\ServerSide\\TermProject\\Project3.WebApp\\wwwroot\\",
+      "BasePath": "_content/Project3.WebApp",
+      "RelativePath": "css/review/star-rating.css",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\css\\review\\star-rating.css"
     },
     {
       "Identity": "C:\\Users\\choiy\\OneDrive\\Desktop\\ServerSide\\TermProject\\Project3.WebApp\\wwwroot\\css\\site.css",

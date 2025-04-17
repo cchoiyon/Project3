@@ -5,6 +5,10 @@
       "PackagePath": "staticwebassets\\css\\account-styles.css"
     },
     {
+      "Id": "C:\\Users\\choiy\\OneDrive\\Desktop\\ServerSide\\TermProject\\Project3.WebApp\\wwwroot\\css\\review\\star-rating.css",
+      "PackagePath": "staticwebassets\\css\\review\\star-rating.css"
+    },
+    {
       "Id": "C:\\Users\\choiy\\OneDrive\\Desktop\\ServerSide\\TermProject\\Project3.WebApp\\wwwroot\\css\\site.css",
       "PackagePath": "staticwebassets\\css\\site.css"
     },

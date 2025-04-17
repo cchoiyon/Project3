@@ -19,6 +19,9 @@
     @* Link to your Site CSS *@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 
+    @* Render Styles section *@
+    @await RenderSectionAsync("Styles", required: false)
+
     @* Allow specific pages to add custom head content *@
     @await RenderSectionAsync("Head", required: false)
 
