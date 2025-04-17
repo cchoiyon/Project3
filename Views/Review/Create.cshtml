@@ -1,0 +1,90 @@
+﻿@model Review
+@{
+    ViewData["Title"] = $"Write Review for {ViewData["RestaurantName"]}";
+    Layout = "_AppLayout"; // Use your main application layout
+}
+
+<h1>@ViewData["Title"]</h1>
+<hr />
+
+<div class="row">
+    <div class="col-md-8 col-lg-6">
+        <form asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            @* Hidden field for RestaurantID *@
+            <input type="hidden" asp-for="RestaurantID" />
+
+            <div class="mb-3">
+                <label asp-for="VisitDate" class="form-label"></label>
+                <input asp-for="VisitDate" type="date" class="form-control" />
+                <span asp-validation-for="VisitDate" class="text-danger"></span>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label asp-for="FoodQualityRating" class="form-label">Food Quality</label>
+                    <select asp-for="FoodQualityRating" class="form-select">
+                        <option value="">-- Rate --</option>
+                        @for (int i = 5; i >= 1; i--)
+                        {
+                            <option value="@i">@i Star@(i != 1 ? "s" : "")</option>
+                        }
+                    </select>
+                    <span asp-validation-for="FoodQualityRating" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="ServiceRating" class="form-label">Service</label>
+                    <select asp-for="ServiceRating" class="form-select">
+                        <option value="">-- Rate --</option>
+                        @for (int i = 5; i >= 1; i--)
+                        {
+                            <option value="@i">@i Star@(i != 1 ? "s" : "")</option>
+                        }
+                    </select>
+                    <span asp-validation-for="ServiceRating" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="AtmosphereRating" class="form-label">Atmosphere</label>
+                    <select asp-for="AtmosphereRating" class="form-select">
+                        <option value="">-- Rate --</option>
+                        @for (int i = 5; i >= 1; i--)
+                        {
+                            <option value="@i">@i Star@(i != 1 ? "s" : "")</option>
+                        }
+                    </select>
+                    <span asp-validation-for="AtmosphereRating" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="PriceRating" class="form-label">Price Level</label>
+                    <select asp-for="PriceRating" class="form-select">
+                        <option value="">-- Rate --</option>
+                        @for (int i = 1; i <= 5; i++)
+                        {
+                            <option value="@i">@("".PadLeft(i, '$'))</option>
+                        } @* Display $, $$, etc. *@
+                    </select>
+                    <span asp-validation-for="PriceRating" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Comments" class="form-label"></label>
+                <textarea asp-for="Comments" class="form-control" rows="5" placeholder="Share details of your own experience at this place"></textarea>
+                <span asp-validation-for="Comments" class="text-danger"></span>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-start mt-4">
+                <button type="submit" class="btn btn-primary">Submit Review</button>
+                @* Link back to restaurant or review list *@
+                <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

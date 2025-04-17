@@ -1,0 +1,39 @@
+﻿@* File: Views/Shared/_RestaurantSearchFormPartial.cshtml *@
+@model SearchCriteriaViewModel
+@* This partial view defines the restaurant search form *@
+@* It expects SearchCriteriaViewModel as its model, passed from the main view *@
+
+<form asp-controller="Restaurant" asp-action="Search" method="post" class="search-form">
+    @* Add AntiForgeryToken for POST security *@
+    @Html.AntiForgeryToken()
+
+    <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label asp-for="CuisineInput" class="form-label"></label>
+            <select asp-for="CuisineInput" class="form-select form-select-sm">
+                <option value="">All Cuisines</option>
+                @foreach (var cuisine in Model.AvailableCuisines)
+                {
+                    <option value="@cuisine">@cuisine</option>
+                }
+            </select>
+            <small class="text-muted">Optional - Select to filter by cuisine type</small>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="City" class="form-label"></label>
+            <input asp-for="City" class="form-control form-control-sm" placeholder="Any city" />
+            <small class="text-muted">Optional - Enter city name</small>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="State" class="form-label"></label>
+            <input asp-for="State" class="form-control form-control-sm" placeholder="Any state" maxlength="2" />
+            <small class="text-muted">Optional - Enter state code</small>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="fas fa-search me-2"></i>Search
+            </button>
+            <small class="text-muted d-block mt-1">Leave fields empty to see all restaurants</small>
+        </div>
+    </div>
+</form>
