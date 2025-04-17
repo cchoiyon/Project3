@@ -1,0 +1,84 @@
+﻿@* Define the model type this view expects. *@
+@* You'll need to create this ViewModel class in Models/ViewModels folder. *@
+@* It should contain a property like: public List<Project3.Models.DTOs.ReviewDto> Reviews { get; set; } *@
+@model Project3.Shared.Models.ViewModels.ManageReviewsViewModel
+
+@{
+    ViewData["Title"] = "Manage My Reviews";
+    Layout = "~/Views/Shared/_AppLayout.cshtml";
+}
+
+<div class="welcome-section">
+    <h1 class="display-5">@ViewData["Title"]</h1>
+    <p class="lead text-muted">View and manage all your restaurant reviews</p>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        @* Check if the Model and the Reviews list exist and have items before trying to display the table *@
+        @if (Model != null && Model.Reviews != null && Model.Reviews.Any())
+        {
+            <p>Here are the reviews you have written:</p>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Restaurant</th>
+                            <th>Rating</th>
+                            <th>Comment</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var review in Model.Reviews)
+                        {
+                            <tr>
+                                <td>@Html.DisplayFor(modelItem => review.RestaurantName)</td>
+                                <td>
+                                    <div class="review-rating">
+                                        @for (int i = 1; i <= 5; i++)
+                                        {
+                                            <i class="fa@(i <= review.Rating ? 's' : 'r') fa-star"></i>
+                                        }
+                                        <span class="ms-2">(@review.Rating.ToString("0.#")/5)</span>
+                                    </div>
+                                </td>
+                                <td>@Html.DisplayFor(modelItem => review.Comment)</td>
+                                <td>@review.ReviewDate.ToString("MMM d, yyyy")</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a asp-controller="Review" asp-action="Edit" asp-route-id="@review.ReviewId" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        <a asp-controller="Review" asp-action="Delete" asp-route-id="@review.ReviewId" class="btn btn-sm btn-outline-danger" 
+                                           onclick="return confirm('Are you sure you want to delete this review?');">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i> You haven't written any reviews yet.
+            </div>
+            <div class="text-center mt-4">
+                <a asp-controller="Restaurant" asp-action="Search" class="btn btn-primary">
+                    <i class="fas fa-search me-2"></i> Find Restaurants to Review
+                </a>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Add any page-specific JavaScript here
+    </script>
+}

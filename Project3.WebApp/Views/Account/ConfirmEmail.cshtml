@@ -1,0 +1,68 @@
+﻿@{
+    Layout = null; // Standalone page
+    ViewData["Title"] = "Email Confirmation";
+    var statusClass = ViewBag.ConfirmationStatus == "Success" ? "alert-success" : "alert-danger";
+    var showLoginButton = ViewBag.ConfirmationStatus == "Success";
+    var showErrorInfo = ViewBag.ConfirmationStatus == "Error";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Restaurant Reviews</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/account-styles.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="login-container">
+        @* Left Column - Graphic Area (Consistent) *@
+        <div class="login-graphic-col">
+            <h1 class="graphic-title">Restaurant Reviews</h1>
+        </div>
+
+        @* Right Column - Message Area *@
+        <div class="login-form-col">
+            <div class="login-form-panel">
+                <h1 class="login-title">@ViewData["Title"]</h1>
+                <hr />
+
+                @if (ViewBag.Message != null)
+                {
+                    <div class="alert @statusClass" role="alert">
+                        @ViewBag.Message
+                    </div>
+                }
+                else // Fallback message
+                {
+                    <div class="alert alert-warning" role="alert">
+                        Processing email confirmation...
+                    </div>
+                }
+
+                @if (showLoginButton)
+                {
+                    <div class="d-grid gap-2 mt-4">
+                        <a asp-action="Login" asp-controller="Account" class="btn btn-primary login-btn">Click here to Log In</a>
+                    </div>
+                }
+                @if (showErrorInfo)
+                {
+                    // Optionally add link to register again or contact support
+                    <div class="extra-links mt-3">
+                        <p>
+                            <a asp-action="Register" asp-controller="Account">Need to register again?</a>
+                        </p>
+                        <p>
+                            <a asp-action="Login">Back to Login</a>
+                        </p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

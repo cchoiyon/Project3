@@ -1,0 +1,116 @@
+﻿@* File: Views/Shared/_RestaurantCardPartial.cshtml *@
+@model RestaurantViewModel
+@* Assuming helper functions are moved to a utility class like ViewHelpers *@
+@* Example: @using Project3.Utilities *@
+
+@*
+    NOTE: The Func<> definitions have been removed from this partial.
+    Assume GetStarRatingHTML and GetImagePath are available via a
+    utility class (e.g., ViewHelpers.GetStarRatingHTML(Model.OverallRating))
+    or Tag Helpers.
+*@
+
+@* Bootstrap Card Structure - h-100 makes cards in a row equal height *@
+<div class="card h-100 restaurant-card" data-restaurant-id="@Model.RestaurantID">
+    <div class="position-relative">
+        @if (!string.IsNullOrEmpty(Model.ProfilePhoto))
+        {
+            <img src="@Model.ProfilePhoto" class="card-img-top" alt="@Model.Name" style="height: 200px; object-fit: cover; width: 100%;">
+        }
+        else
+        {
+            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px; background-color: #f8f9fa;">
+                <i class="fas fa-utensils fa-3x text-muted"></i>
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(Model.Cuisine))
+        {
+            <span class="position-absolute top-0 end-0 m-2 badge bg-primary">
+                @Model.Cuisine
+            </span>
+        }
+    </div>
+    <div class="card-body">
+        <h5 class="card-title">@Model.Name</h5>
+        <p class="card-text">
+            @if (!string.IsNullOrEmpty(Model.City) || !string.IsNullOrEmpty(Model.State))
+            {
+                <small class="text-muted">
+                    <i class="fas fa-map-marker-alt me-1"></i>
+                    @Model.City@(!string.IsNullOrEmpty(Model.City) && !string.IsNullOrEmpty(Model.State) ? ", " : "")@Model.State
+                </small>
+            }
+        </p>
+        
+        <div class="d-flex flex-column gap-2">
+            @* Star Rating and Review Count *@
+            @if (Model.AverageRating > 0)
+            {
+                <div class="d-flex align-items-center">
+                    <div class="text-warning me-2">
+                        @for (int i = 1; i <= 5; i++)
+                        {
+                            if (i <= Math.Round(Model.AverageRating))
+                            {
+                                <i class="fas fa-star"></i>
+                            }
+                            else if (i - 0.5 <= Model.AverageRating)
+                            {
+                                <i class="fas fa-star-half-alt"></i>
+                            }
+                            else
+                            {
+                                <i class="far fa-star"></i>
+                            }
+                        }
+                    </div>
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-comment-alt me-1"></i>@Model.ReviewCount review@(Model.ReviewCount != 1 ? "s" : "")
+                    </span>
+                </div>
+            }
+            else
+            {
+                <div class="text-muted">
+                    <i class="far fa-star"></i> No reviews yet
+                </div>
+            }
+
+            @* Price Level *@
+            @if (Model.AveragePriceLevel > 0)
+            {
+                <div class="d-flex align-items-center">
+                    <span class="text-success">
+                        @for (int i = 1; i <= Model.AveragePriceLevel; i++)
+                        {
+                            <i class="fas fa-dollar-sign"></i>
+                        }
+                    </span>
+                    <span class="ms-2 small text-muted">Price Level</span>
+                </div>
+            }
+        </div>
+
+        <div class="mt-3">
+            <a asp-action="Details" asp-route-id="@Model.RestaurantID" class="btn btn-outline-primary btn-sm w-100">
+                <i class="fas fa-info-circle me-2"></i>View Details
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .restaurant-card {
+        transition: all 0.3s ease;
+    }
+    .restaurant-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .restaurant-card .text-warning {
+        font-size: 1.1rem;
+    }
+    .restaurant-card .text-success {
+        font-size: 1.1rem;
+    }
+</style>
